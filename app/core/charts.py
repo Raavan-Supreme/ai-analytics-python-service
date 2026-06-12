@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from pathlib import Path
 from typing import Any, Optional
@@ -10,6 +11,7 @@ import pandas as pd
 matplotlib.use("Agg")
 
 SUPPORTED_CHART_TYPES = ["line", "bar", "scatter", "hist", "box", "area", "pie", "violin", "heatmap"]
+logger = logging.getLogger("python_service.charts")
 
 
 def to_plot_label(value: Any) -> str:
@@ -84,81 +86,82 @@ def render_chart_png(result_df: pd.DataFrame, chart_spec: dict[str, Any], chart_
     chart_id = f"chart_{uuid.uuid4().hex}.png"
     chart_path = chart_dir / chart_id
 
-    plt.figure(figsize=(10, 5))
-    if chart_type == "line":
-        if y_numeric.dropna().empty:
-            plt.close()
-            return None
-        plt.plot(x_values, y_numeric.fillna(0), marker="o")
-    elif chart_type == "bar":
-        if y_numeric.dropna().empty:
-            plt.close()
-            return None
-        plt.bar(x_values, y_numeric.fillna(0))
-    elif chart_type == "scatter":
-        if y_numeric.dropna().empty:
-            plt.close()
-            return None
-        plt.scatter(x_values, y_numeric.fillna(0), alpha=0.8)
-    elif chart_type == "hist":
-        hist_series = y_numeric.dropna()
-        if hist_series.empty:
-            plt.close()
-            return None
-        plt.hist(hist_series, bins=20)
-        plt.xlabel(str(y_field))
-        plt.ylabel("Frequency")
-    elif chart_type == "box":
-        box_series = y_numeric.dropna()
-        if box_series.empty:
-            plt.close()
-            return None
-        plt.boxplot(box_series)
-        plt.xticks([1], [str(y_field)])
-    elif chart_type == "area":
-        area_series = y_numeric.fillna(0)
-        plt.fill_between(range(len(area_series)), area_series)
-        plt.xticks(range(len(x_values)), x_values, rotation=45, ha="right")
-    elif chart_type == "pie":
-        pie_source = pd.DataFrame({"x": x_values, "y": y_numeric.fillna(0)})
-        pie_df = pie_source.groupby("x", dropna=False)["y"].sum().head(20)
-        if pie_df.empty:
-            plt.close()
-            return None
-        plt.pie(pie_df.values, labels=pie_df.index.astype(str), autopct="%1.1f%%")
-    elif chart_type == "violin":
-        violin_series = y_numeric.dropna()
-        if violin_series.empty:
-            plt.close()
-            return None
-        plt.violinplot(violin_series)
-        plt.xticks([1], [str(y_field)])
-    elif chart_type == "heatmap":
-        numeric = result_df.select_dtypes(include="number")
-        if numeric.shape[1] < 2:
-            plt.close()
-            return None
-        corr = numeric.corr().fillna(0)
-        plt.imshow(corr, cmap="viridis", aspect="auto")
-        plt.colorbar()
-        plt.xticks(range(len(corr.columns)), corr.columns, rotation=45, ha="right")
-        plt.yticks(range(len(corr.index)), corr.index)
-    else:
-        if y_numeric.dropna().empty:
-            plt.close()
-            return None
-        plt.bar(x_values, y_numeric.fillna(0))
+    try:
+        plt.figure(figsize=(10, 5))
+        if chart_type == "line":
+            if y_numeric.dropna().empty:
+                return None
+            plt.plot(x_values, y_numeric.fillna(0), marker="o")
+        elif chart_type == "bar":
+            if y_numeric.dropna().empty:
+                return None
+            plt.bar(x_values, y_numeric.fillna(0))
+        elif chart_type == "scatter":
+            if y_numeric.dropna().empty:
+                return None
+            plt.scatter(x_values, y_numeric.fillna(0), alpha=0.8)
+        elif chart_type == "hist":
+            hist_series = y_numeric.dropna()
+            if hist_series.empty:
+                return None
+            plt.hist(hist_series, bins=20)
+            plt.xlabel(str(y_field))
+            plt.ylabel("Frequency")
+        elif chart_type == "box":
+            box_series = y_numeric.dropna()
+            if box_series.empty:
+                return None
+            plt.boxplot(box_series)
+            plt.xticks([1], [str(y_field)])
+        elif chart_type == "area":
+            area_series = y_numeric.fillna(0)
+            if area_series.empty:
+                return None
+            plt.fill_between(range(len(area_series)), area_series)
+            plt.xticks(range(len(x_values)), x_values, rotation=45, ha="right")
+        elif chart_type == "pie":
+            pie_source = pd.DataFrame({"x": x_values, "y": y_numeric.fillna(0)})
+            pie_df = pie_source.groupby("x", dropna=False)["y"].sum().head(20)
+            pie_df = pie_df[pie_df != 0]
+            if pie_df.empty:
+                return None
+            plt.pie(pie_df.values, labels=pie_df.index.astype(str), autopct="%1.1f%%")
+        elif chart_type == "violin":
+            violin_series = y_numeric.dropna()
+            if violin_series.empty:
+                return None
+            plt.violinplot(violin_series)
+            plt.xticks([1], [str(y_field)])
+        elif chart_type == "heatmap":
+            numeric = result_df.select_dtypes(include="number")
+            if numeric.shape[1] < 2:
+                return None
+            corr = numeric.corr().fillna(0)
+            plt.imshow(corr, cmap="viridis", aspect="auto")
+            plt.colorbar()
+            plt.xticks(range(len(corr.columns)), corr.columns, rotation=45, ha="right")
+            plt.yticks(range(len(corr.index)), corr.index)
+        else:
+            if y_numeric.dropna().empty:
+                return None
+            plt.bar(x_values, y_numeric.fillna(0))
 
-    plt.title(f"{chart_type}: {y_field} by {x_field}")
-    if chart_type not in {"hist", "pie", "heatmap", "violin"}:
-        plt.xlabel(str(x_field))
-        plt.ylabel(str(y_field))
-        plt.xticks(rotation=45, ha="right")
-    plt.tight_layout()
-    plt.savefig(chart_path)
-    plt.close()
-
-    return chart_id
+        plt.title(f"{chart_type}: {y_field} by {x_field}")
+        if chart_type not in {"hist", "pie", "heatmap", "violin"}:
+            plt.xlabel(str(x_field))
+            plt.ylabel(str(y_field))
+            plt.xticks(rotation=45, ha="right")
+        try:
+            plt.tight_layout()
+        except Exception as layout_error:
+            logger.warning("Chart tight_layout failed for %s (%s): %s", chart_type, chart_id, layout_error)
+        plt.savefig(chart_path)
+        return chart_id
+    except Exception as chart_error:
+        logger.warning("Chart render failed for type=%s spec=%s: %s", chart_type, chart_spec, chart_error)
+        return None
+    finally:
+        plt.close()
 
 
 def render_charts(result_df: pd.DataFrame, chart_type: str, chart_dir: Path) -> list[dict[str, Any]]:

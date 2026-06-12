@@ -1,11 +1,13 @@
 import ast
 import hashlib
 import json
+import logging
 import os
 import re
 import secrets
 import sqlite3
 import uuid
+import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -13,6 +15,7 @@ from typing import Any, Optional
 import httpx
 import matplotlib
 import pandas as pd
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -27,6 +30,8 @@ import matplotlib.pyplot as plt
 
 
 BASE_DIR = Path(__file__).resolve().parents[1]
+load_dotenv(BASE_DIR / ".env")
+load_dotenv()
 DATA_DIR = BASE_DIR / "data"
 UPLOAD_DIR = DATA_DIR / "uploads"
 CHART_DIR = DATA_DIR / "charts"
@@ -39,6 +44,18 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 CHART_DIR.mkdir(parents=True, exist_ok=True)
 
 TOKEN_STORE: dict[str, int] = {}
+UNRESOLVED_QUESTION_COUNTS: dict[str, int] = {}
+QUERY_TRACE_ENABLED = os.getenv("APP_QUERY_TRACE", "true").strip().lower() in {"1", "true", "yes", "on"}
+QUERY_TRACE_INCLUDE_IN_RESPONSE = os.getenv("APP_QUERY_TRACE_INCLUDE_RESPONSE", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+LLM_TRACE_ENABLED = os.getenv("APP_LLM_TRACE", "true").strip().lower() in {"1", "true", "yes", "on"}
+LLM_TRACE_PROMPT_MAX = int(os.getenv("APP_LLM_TRACE_PROMPT_MAX", "4000"))
+LLM_TRACE_RESPONSE_MAX = int(os.getenv("APP_LLM_TRACE_RESPONSE_MAX", "2000"))
+logger = logging.getLogger("python_service.query_trace")
 
 
 app = FastAPI(title="Python NL Query Service", version="1.0.0")
@@ -92,6 +109,7 @@ class JavaRelationshipSpec(BaseModel):
 class JavaNLQueryRequest(BaseModel):
     sessionId: Optional[int] = None
     filePath: Optional[str] = None
+    sheetName: Optional[str] = None
     filePaths: list[str] = Field(default_factory=list)
     relationships: list[JavaRelationshipSpec] = Field(default_factory=list)
     question: str
@@ -106,6 +124,7 @@ class NLQueryResponse(BaseModel):
     summary: str
     generated_code: str
     attempts: int
+    debugTrace: Optional[dict[str, Any]] = None
 
 
 class DashboardRequest(BaseModel):
@@ -253,7 +272,13 @@ def detect_column_kind(series: pd.Series) -> str:
     if non_null.empty:
         return "text"
 
-    parsed_dates = pd.to_datetime(non_null, errors="coerce", utc=False)
+    try:
+        parsed_dates = pd.to_datetime(non_null, errors="coerce", utc=False, format="mixed")
+    except TypeError:
+        # pandas < 2.0 does not support format="mixed".
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            parsed_dates = pd.to_datetime(non_null, errors="coerce", utc=False)
     if parsed_dates.notna().mean() > 0.8:
         return "date"
 
@@ -298,15 +323,93 @@ def to_1d_series(df: pd.DataFrame, field: str) -> pd.Series:
 
 def read_csv_robust(file_path: str) -> pd.DataFrame:
     try:
-        return pd.read_csv(file_path)
+        df = pd.read_csv(file_path)
     except Exception:
-        return pd.read_csv(file_path, engine="python", on_bad_lines="skip", encoding_errors="ignore")
+        df = pd.read_csv(file_path, engine="python", on_bad_lines="skip", encoding_errors="ignore")
+    return normalize_uploaded_dataframe(df)
+
+
+def _normalize_column_name(name: Any, fallback_index: int) -> str:
+    cleaned = re.sub(r"\s+", " ", str(name or "").replace("\r", " ").replace("\n", " ")).strip()
+    return cleaned or f"column_{fallback_index}"
+
+
+def _normalize_fragmented_text(value: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    cleaned = value.replace("\r", " ").replace("\n", " ")
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned
+
+
+def _date_parse_score(sample: pd.Series, *, dayfirst: bool) -> float:
+    if sample.empty:
+        return 0.0
+    try:
+        parsed = pd.to_datetime(sample, errors="coerce", format="mixed", dayfirst=dayfirst)
+    except TypeError:
+        parsed = pd.to_datetime(sample, errors="coerce", dayfirst=dayfirst)
+    return float(parsed.notna().mean())
+
+
+def _coerce_date_like_columns(df: pd.DataFrame) -> pd.DataFrame:
+    out = df.copy()
+    hint_tokens = ("date", "time", "day", "month", "year", "created", "updated", "purchase", "txn")
+    for col in out.columns:
+        series = to_1d_series(out, str(col))
+        if pd.api.types.is_datetime64_any_dtype(series):
+            continue
+        sample = series.dropna().astype(str).str.strip()
+        sample = sample[sample != ""]
+        if sample.empty:
+            continue
+        if len(sample) > 600:
+            sample = sample.sample(n=600, random_state=0, replace=False)
+        col_norm = core_intents.normalize_token(col)
+        has_date_hint = any(token in col_norm for token in hint_tokens)
+        score_default = _date_parse_score(sample, dayfirst=False)
+        score_dayfirst = _date_parse_score(sample, dayfirst=True)
+        best_dayfirst = score_dayfirst > (score_default + 0.05)
+        best_score = score_dayfirst if best_dayfirst else score_default
+        if best_score >= 0.8 or (has_date_hint and best_score >= 0.45):
+            source = series.astype(str).str.strip()
+            source = source.replace({"": pd.NA})
+            try:
+                out[str(col)] = pd.to_datetime(source, errors="coerce", format="mixed", dayfirst=best_dayfirst)
+            except TypeError:
+                out[str(col)] = pd.to_datetime(source, errors="coerce", dayfirst=best_dayfirst)
+    return out
+
+
+def normalize_uploaded_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty:
+        return df
+
+    out = df.copy()
+    normalized_cols: list[str] = []
+    seen: dict[str, int] = {}
+    for idx, col in enumerate(out.columns):
+        base = _normalize_column_name(col, idx)
+        count = seen.get(base, 0)
+        seen[base] = count + 1
+        normalized_cols.append(base if count == 0 else f"{base}_{count + 1}")
+    out.columns = normalized_cols
+
+    for col in out.columns:
+        series = to_1d_series(out, str(col))
+        if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
+            out[str(col)] = series.map(_normalize_fragmented_text)
+
+    out = _coerce_date_like_columns(out)
+    return out
 
 
 def load_dataframe(file_path: str, sheet_name: Optional[str]) -> pd.DataFrame:
     if file_path.lower().endswith(".csv"):
         return read_csv_robust(file_path)
-    return pd.read_excel(file_path, sheet_name=sheet_name)
+    if sheet_name:
+        return normalize_uploaded_dataframe(pd.read_excel(file_path, sheet_name=sheet_name))
+    return normalize_uploaded_dataframe(pd.read_excel(file_path))
 
 
 def load_dataframe_from_path(file_path: str) -> pd.DataFrame:
@@ -314,8 +417,258 @@ def load_dataframe_from_path(file_path: str) -> pd.DataFrame:
     if lower_path.endswith(".csv"):
         return read_csv_robust(file_path)
     if lower_path.endswith(".xlsx") or lower_path.endswith(".xls"):
-        return pd.read_excel(file_path)
+        return normalize_uploaded_dataframe(pd.read_excel(file_path))
     raise HTTPException(status_code=400, detail=f"Unsupported file type: {Path(file_path).suffix}")
+
+
+def _is_excel_path(file_path: str) -> bool:
+    lower = file_path.lower()
+    return lower.endswith(".xlsx") or lower.endswith(".xls")
+
+
+def _question_tokens_for_schema(text: str) -> set[str]:
+    return {token for token in re.split(r"[^a-z0-9]+", str(text or "").lower()) if token}
+
+
+def _sheet_name_score(sheet_name: str, question: str) -> float:
+    question_norm = core_intents.normalize_token(question)
+    sheet_norm = core_intents.normalize_token(sheet_name)
+    if not question_norm or not sheet_norm:
+        return 0.0
+
+    score = 0.0
+    if sheet_norm in question_norm:
+        score += 0.45
+
+    question_tokens = _question_tokens_for_schema(question)
+    sheet_tokens = _question_tokens_for_schema(sheet_name)
+    overlap = len(question_tokens.intersection(sheet_tokens))
+    if overlap > 0:
+        score += min(0.35, 0.12 * overlap)
+    return score
+
+
+def _sheet_schema_score(sheet_df: pd.DataFrame, question: str) -> tuple[float, list[str]]:
+    relation = core_intents.question_schema_relation(sheet_df, question)
+    try:
+        score = float(relation.get("score") or 0.0)
+    except (TypeError, ValueError):
+        score = 0.0
+    relevant_cols_raw = relation.get("relevantColumns")
+    relevant_cols = [str(col) for col in relevant_cols_raw] if isinstance(relevant_cols_raw, list) else []
+    return score, relevant_cols
+
+
+def _is_all_sheets_request(question: str) -> bool:
+    q = question.lower()
+    markers = [
+        "all sheets",
+        "all sheet",
+        "all tabs",
+        "across sheets",
+        "across all sheets",
+        "all subsheets",
+        "all sub sheets",
+        "all worksheets",
+        "entire workbook",
+        "whole workbook",
+    ]
+    return any(marker in q for marker in markers)
+
+
+def _resolve_requested_sheet_name(requested_sheet: str, available_sheets: list[str]) -> Optional[str]:
+    requested_raw = str(requested_sheet or "").strip()
+    if not requested_raw:
+        return None
+
+    for sheet_name in available_sheets:
+        if sheet_name == requested_raw:
+            return sheet_name
+
+    requested_lower = requested_raw.casefold()
+    for sheet_name in available_sheets:
+        if str(sheet_name).casefold() == requested_lower:
+            return sheet_name
+
+    requested_norm = core_intents.normalize_token(requested_raw)
+    if requested_norm:
+        for sheet_name in available_sheets:
+            if core_intents.normalize_token(sheet_name) == requested_norm:
+                return sheet_name
+
+    return None
+
+
+def _combine_sheets_with_origin(file_path: str, sheets: dict[str, pd.DataFrame]) -> pd.DataFrame:
+    file_name = Path(file_path).name
+    frames: list[pd.DataFrame] = []
+    for sheet_name, sheet_df in sheets.items():
+        tagged = sheet_df.copy()
+        tagged["__sheet_name"] = str(sheet_name)
+        tagged["__source_file"] = file_name
+        frames.append(tagged)
+    if not frames:
+        return pd.DataFrame()
+    return pd.concat(frames, ignore_index=True, sort=False)
+
+
+def _combine_frames_with_file_origin(frames: list[tuple[str, pd.DataFrame]]) -> pd.DataFrame:
+    tagged_frames: list[pd.DataFrame] = []
+    for source_path, frame in frames:
+        tagged = frame.copy()
+        if "__source_file" not in tagged.columns:
+            tagged["__source_file"] = Path(source_path).name
+        tagged_frames.append(tagged)
+    if not tagged_frames:
+        return pd.DataFrame()
+    return pd.concat(tagged_frames, ignore_index=True, sort=False)
+
+
+def load_dataframe_from_path_with_question(
+    file_path: str,
+    question: str,
+    *,
+    preferred_key: Optional[str] = None,
+    requested_sheet: Optional[str] = None,
+    force_all_sheets: bool = False,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    lower_path = file_path.lower()
+    if lower_path.endswith(".csv"):
+        df = read_csv_robust(file_path)
+        return df, {
+            "sourceType": "csv",
+            "filePath": file_path,
+            "mode": "single_file",
+        }
+
+    if not _is_excel_path(file_path):
+        raise HTTPException(status_code=400, detail=f"Unsupported file type: {Path(file_path).suffix}")
+
+    try:
+        workbook = pd.read_excel(file_path, sheet_name=None)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Failed to read workbook: {Path(file_path).name}. {exc}") from exc
+
+    if not isinstance(workbook, dict) or not workbook:
+        raise HTTPException(status_code=400, detail=f"Workbook has no readable sheets: {Path(file_path).name}")
+
+    sheets: dict[str, pd.DataFrame] = {
+        str(sheet_name): normalize_uploaded_dataframe(frame.reset_index(drop=True))
+        for sheet_name, frame in workbook.items()
+    }
+    available_sheets = list(sheets.keys())
+    candidate_sheets = sheets
+
+    if requested_sheet:
+        resolved_requested_sheet = _resolve_requested_sheet_name(requested_sheet, available_sheets)
+        if resolved_requested_sheet:
+            selected_df = sheets[resolved_requested_sheet]
+            return selected_df, {
+                "sourceType": "excel",
+                "filePath": file_path,
+                "mode": "requested_sheet",
+                "selectedSheet": resolved_requested_sheet,
+                "requestedSheet": requested_sheet,
+                "selectionScore": 1.0,
+                "relevantColumns": [],
+                "availableSheets": available_sheets,
+                "preferredKey": preferred_key,
+            }
+
+    if preferred_key:
+        key_candidates = {name: frame for name, frame in sheets.items() if preferred_key in frame.columns}
+        if key_candidates:
+            candidate_sheets = key_candidates
+
+    if force_all_sheets or (_is_all_sheets_request(question) and preferred_key is None and len(candidate_sheets) > 1):
+        combined = _combine_sheets_with_origin(file_path, candidate_sheets)
+        return combined, {
+            "sourceType": "excel",
+            "filePath": file_path,
+            "mode": "all_sheets",
+            "sheetCount": len(candidate_sheets),
+            "availableSheets": available_sheets,
+            "selectedSheets": list(candidate_sheets.keys()),
+            "preferredKey": preferred_key,
+        }
+
+    ranked: list[tuple[float, str, list[str]]] = []
+    for sheet_name, frame in candidate_sheets.items():
+        name_score = _sheet_name_score(sheet_name, question)
+        schema_score, relevant_cols = _sheet_schema_score(frame, question)
+        key_bonus = 0.5 if preferred_key and preferred_key in frame.columns else 0.0
+        ranked.append((name_score + schema_score + key_bonus, sheet_name, relevant_cols))
+
+    ranked.sort(key=lambda item: (-item[0], item[1].lower()))
+    selected_score, selected_sheet, relevant_columns = ranked[0]
+    selected_df = candidate_sheets[selected_sheet]
+
+    # If sheet confidence is weak, combine sheets to avoid missing answers hidden in other subsheets.
+    if (
+        selected_score < 0.25
+        and len(candidate_sheets) > 1
+        and preferred_key is None
+    ):
+        combined = _combine_sheets_with_origin(file_path, candidate_sheets)
+        return combined, {
+            "sourceType": "excel",
+            "filePath": file_path,
+            "mode": "all_sheets_low_confidence",
+            "sheetCount": len(candidate_sheets),
+            "availableSheets": available_sheets,
+            "selectedSheets": list(candidate_sheets.keys()),
+            "preferredKey": preferred_key,
+        }
+
+    return selected_df, {
+        "sourceType": "excel",
+        "filePath": file_path,
+        "mode": "selected_sheet",
+        "selectedSheet": selected_sheet,
+        "selectionScore": round(float(selected_score), 3),
+        "relevantColumns": relevant_columns,
+        "availableSheets": available_sheets,
+        "preferredKey": preferred_key,
+    }
+
+
+def summarize_data_context(data_context: dict[str, Any]) -> str:
+    sources = data_context.get("selectedSources")
+    if not isinstance(sources, list) or not sources:
+        return ""
+
+    selected_sheets: list[str] = []
+    combined_sheets = 0
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        if str(source.get("sourceType")) != "excel":
+            continue
+        mode = str(source.get("mode") or "")
+        if mode.startswith("all_sheets"):
+            try:
+                combined_sheets += int(source.get("sheetCount") or 0)
+            except (TypeError, ValueError):
+                pass
+            continue
+        selected = source.get("selectedSheet")
+        if selected:
+            selected_sheets.append(str(selected))
+
+    if combined_sheets > 0:
+        return f"Workbook context: combined {combined_sheets} sheet(s)."
+
+    if selected_sheets:
+        unique: list[str] = []
+        for sheet in selected_sheets:
+            if sheet not in unique:
+                unique.append(sheet)
+        shown = ", ".join(unique[:3])
+        if len(unique) > 3:
+            shown += f" (+{len(unique) - 3} more)"
+        return f"Workbook context: using sheet(s) {shown}."
+
+    return ""
 
 
 def get_dataset_row(user_id: int, dataset_id: int) -> sqlite3.Row:
@@ -335,48 +688,96 @@ def load_dataset_df(user_id: int, dataset_id: int) -> pd.DataFrame:
     return load_dataframe(row["file_path"], row["sheet_name"])
 
 
-def call_local_llm(prompt: str) -> str:
-    provider = os.getenv("LOCAL_LLM_PROVIDER", "none")
-    base_url = os.getenv("LOCAL_LLM_BASE_URL", "")
-    model = os.getenv("LOCAL_LLM_MODEL", "")
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name)
+    if raw is None or not str(raw).strip():
+        return default
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return default
 
-    if provider == "lmstudio":
-        url = base_url.rstrip("/") + "/v1/chat/completions"
-        payload = {
-            "model": model,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "Write safe pandas code only. Use df as dataframe and assign output to result.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            "temperature": 0.1,
-        }
-        with httpx.Client(timeout=45.0) as client:
-            response = client.post(url, json=payload)
-            response.raise_for_status()
-            data = response.json()
-            return data["choices"][0]["message"]["content"]
 
-    if provider == "ollama":
-        url = base_url.rstrip("/") + "/api/chat"
-        payload = {
-            "model": model,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "Write safe pandas code only. Use df as dataframe and assign output to result.",
-                },
-                {"role": "user", "content": prompt},
-            ],
-            "stream": False,
-        }
-        with httpx.Client(timeout=45.0) as client:
-            response = client.post(url, json=payload)
-            response.raise_for_status()
-            data = response.json()
-            return data.get("message", {}).get("content", "")
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None or not str(raw).strip():
+        return default
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return default
+
+
+def call_local_llm(
+    prompt: str,
+    *,
+    system_prompt: Optional[str] = None,
+    model_override: Optional[str] = None,
+    temperature: Optional[float] = None,
+    max_tokens: Optional[int] = None,
+    timeout_sec: Optional[float] = None,
+) -> str:
+    provider = os.getenv("LOCAL_LLM_PROVIDER", "none").strip().lower()
+    base_url = os.getenv("LOCAL_LLM_BASE_URL", "").strip()
+    model = (model_override or os.getenv("LOCAL_LLM_MODEL", "gamma13b")).strip()
+
+    if provider in {"", "none", "off", "disabled"}:
+        return ""
+
+    resolved_system_prompt = system_prompt or "Write safe pandas code only. Use df as dataframe and assign output to result."
+    resolved_temperature = temperature if temperature is not None else _env_float("LOCAL_LLM_TEMPERATURE", 0.1)
+    resolved_max_tokens = max_tokens if max_tokens is not None else _env_int("LOCAL_LLM_MAX_TOKENS", 2000)
+    resolved_timeout = timeout_sec if timeout_sec is not None else _env_float("LOCAL_LLM_TIMEOUT_SEC", 60.0)
+
+    try:
+        if provider in {"lmstudio", "openai", "openai_compatible"}:
+            effective_base_url = base_url or "http://localhost:1234"
+            url = effective_base_url.rstrip("/") + "/v1/chat/completions"
+            payload = {
+                "model": model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": resolved_system_prompt,
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": resolved_temperature,
+            }
+            if resolved_max_tokens and resolved_max_tokens > 0:
+                payload["max_tokens"] = resolved_max_tokens
+            with httpx.Client(timeout=resolved_timeout) as client:
+                response = client.post(url, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                return data["choices"][0]["message"]["content"]
+
+        if provider == "ollama":
+            effective_base_url = base_url or "http://localhost:11434"
+            url = effective_base_url.rstrip("/") + "/api/chat"
+            payload = {
+                "model": model,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": resolved_system_prompt,
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                "stream": False,
+            }
+            options: dict[str, Any] = {"temperature": resolved_temperature}
+            if resolved_max_tokens and resolved_max_tokens > 0:
+                options["num_predict"] = resolved_max_tokens
+            payload["options"] = options
+            with httpx.Client(timeout=resolved_timeout) as client:
+                response = client.post(url, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                return data.get("message", {}).get("content", "")
+    except Exception as exc:
+        logger.warning("Local LLM call failed. Falling back to rule-based path. provider=%s error=%s", provider, exc)
+        return ""
 
     return ""
 
@@ -489,16 +890,65 @@ def execute_query_code(df: pd.DataFrame, code: str) -> pd.DataFrame:
     return result.reset_index(drop=True)
 
 
-def build_query_prompt(df: pd.DataFrame, question: str) -> str:
-    schema_lines = []
-    for col, dtype in zip(df.columns, df.dtypes):
-        schema_lines.append(f"- {col} ({dtype})")
+def _sample_schema_for_query_prompt(df: pd.DataFrame, max_cols: int = 28, max_values: int = 4) -> str:
+    profile = profile_dataframe(df)
+    lines: list[str] = []
+    for col in list(df.columns)[:max_cols]:
+        series = to_1d_series(df, str(col))
+        non_null = series.dropna().astype(str)
+        sample_values = list(dict.fromkeys(non_null.tolist()))[:max_values]
+        sample_text = ", ".join(sample_values)
+        inferred_kind = profile.get(str(col), "text")
+        lines.append(f"- {col} ({series.dtype}, inferred={inferred_kind}) sample=[{sample_text}]")
+    return "\n".join(lines)
+
+
+def _format_data_context_for_prompt(data_context: Optional[dict[str, Any]]) -> str:
+    if not isinstance(data_context, dict):
+        return ""
+
+    lines: list[str] = []
+    context_note = summarize_data_context(data_context)
+    if context_note:
+        lines.append(context_note)
+
+    selected_sources = data_context.get("selectedSources")
+    if isinstance(selected_sources, list):
+        for source in selected_sources[:12]:
+            if not isinstance(source, dict):
+                continue
+            source_path = str(source.get("filePath") or "")
+            file_name = Path(source_path).name if source_path else "unknown"
+            mode = str(source.get("mode") or "")
+            selected_sheet = str(source.get("selectedSheet") or "").strip()
+            if selected_sheet:
+                lines.append(f"- file={file_name}, mode={mode}, sheet={selected_sheet}")
+            else:
+                selected_sheets = source.get("selectedSheets")
+                if isinstance(selected_sheets, list) and selected_sheets:
+                    shown = ", ".join(str(item) for item in selected_sheets[:4])
+                    if len(selected_sheets) > 4:
+                        shown += f" (+{len(selected_sheets) - 4} more)"
+                    lines.append(f"- file={file_name}, mode={mode}, sheets={shown}")
+                else:
+                    lines.append(f"- file={file_name}, mode={mode}")
+
+    return "\n".join(lines)
+
+
+def build_query_prompt(df: pd.DataFrame, question: str, data_context: Optional[dict[str, Any]] = None) -> str:
+    schema_details = _sample_schema_for_query_prompt(df)
+    context_text = _format_data_context_for_prompt(data_context)
+    context_block = f"Data context:\n{context_text}\n\n" if context_text else ""
 
     return (
         "You are given a pandas DataFrame named df.\n"
-        + "Columns:\n"
-        + "\n".join(schema_lines)
-        + "\n"
+        + f"Rows: {len(df)}\n"
+        + f"Columns: {len(df.columns)}\n\n"
+        + context_block
+        + "Schema with inferred types and sample values:\n"
+        + schema_details
+        + "\n\n"
         + f"Question: {question}\n\n"
         + "Rules:\n"
         + "1) Use the existing DataFrame variable df.\n"
@@ -507,6 +957,10 @@ def build_query_prompt(df: pd.DataFrame, question: str) -> str:
         + "4) Return code only.\n"
         + "5) If user asks for all/full data, return all rows (result = df).\n"
         + "6) If user asks whether data exists, return boolean existence and matching rows.\n"
+        + "7) If user asks for top/bottom/first/last N, return only N rows.\n"
+        + "8) Date filters should support mixed formats (for example dd/mm/yy and yyyy-mm-dd).\n"
+        + "9) Numeric values may include currency symbols (for example $, GBP, EUR, INR, £, €, Rs); normalize before numeric operations.\n"
+        + "10) Text fields may contain fragmented whitespace/newlines; normalize with .str.replace and .str.strip before text filtering when needed.\n"
     )
 
 
@@ -785,7 +1239,11 @@ def build_joined_dataframe(user_id: int, relationship_id: int) -> pd.DataFrame:
     )
 
 
-def build_dataframe_from_java_request(req: JavaNLQueryRequest) -> pd.DataFrame:
+def build_dataframe_from_java_request(
+    req: JavaNLQueryRequest,
+    question: str,
+    force_all_sheets: bool = False,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     all_paths = [p for p in req.filePaths if p]
     if req.filePath:
         all_paths.append(req.filePath)
@@ -804,9 +1262,56 @@ def build_dataframe_from_java_request(req: JavaNLQueryRequest) -> pd.DataFrame:
             raise HTTPException(status_code=400, detail=f"File not found: {file_path}")
 
     if not req.relationships:
-        return load_dataframe_from_path(unique_paths[0])
+        selected_sources: list[dict[str, Any]] = []
+        if len(unique_paths) == 1:
+            selected_df, source_context = load_dataframe_from_path_with_question(
+                unique_paths[0],
+                question,
+                requested_sheet=req.sheetName,
+                force_all_sheets=force_all_sheets,
+            )
+            return selected_df, {
+                "mode": "single_source",
+                "selectedSources": [source_context],
+            }
 
-    frames: dict[str, pd.DataFrame] = {path: load_dataframe_from_path(path) for path in unique_paths}
+        selected_frames: list[tuple[str, pd.DataFrame]] = []
+        primary_path = core_normalize_input_path(req.filePath) if req.filePath else unique_paths[0]
+        for path in unique_paths:
+            requested_sheet = req.sheetName if path == primary_path else None
+            frame, source_context = load_dataframe_from_path_with_question(
+                path,
+                question,
+                requested_sheet=requested_sheet,
+                force_all_sheets=force_all_sheets,
+            )
+            selected_frames.append((path, frame))
+            selected_sources.append(source_context)
+
+        combined = _combine_frames_with_file_origin(selected_frames)
+        return combined, {
+            "mode": "multi_source",
+            "sourceCount": len(selected_frames),
+            "selectedSources": selected_sources,
+        }
+
+    frame_cache: dict[tuple[str, str], tuple[pd.DataFrame, dict[str, Any]]] = {}
+    selected_sources: list[dict[str, Any]] = []
+    primary_path = core_normalize_input_path(req.filePath) if req.filePath else unique_paths[0]
+
+    def get_frame(path: str, preferred_key: Optional[str]) -> pd.DataFrame:
+        cache_key = (path, preferred_key or "")
+        if cache_key not in frame_cache:
+            requested_sheet = req.sheetName if path == primary_path else None
+            frame_cache[cache_key] = load_dataframe_from_path_with_question(
+                path,
+                question,
+                preferred_key=preferred_key,
+                requested_sheet=requested_sheet,
+                force_all_sheets=force_all_sheets,
+            )
+            selected_sources.append(frame_cache[cache_key][1])
+        return frame_cache[cache_key][0]
 
     current_df: Optional[pd.DataFrame] = None
     covered_paths: set[str] = set()
@@ -815,11 +1320,11 @@ def build_dataframe_from_java_request(req: JavaNLQueryRequest) -> pd.DataFrame:
         left_path = core_normalize_input_path(relation.leftPath)
         right_path = core_normalize_input_path(relation.rightPath)
 
-        if left_path not in frames or right_path not in frames:
+        if left_path not in unique_paths or right_path not in unique_paths:
             raise HTTPException(status_code=400, detail="Relationship file paths must exist in filePaths/filePath")
 
-        left_df = current_df if current_df is not None and left_path in covered_paths else frames[left_path]
-        right_df = current_df if current_df is not None and right_path in covered_paths else frames[right_path]
+        left_df = current_df if current_df is not None and left_path in covered_paths else get_frame(left_path, relation.leftKey)
+        right_df = current_df if current_df is not None and right_path in covered_paths else get_frame(right_path, relation.rightKey)
 
         if relation.leftKey not in left_df.columns:
             raise HTTPException(status_code=400, detail=f"leftKey {relation.leftKey} not found")
@@ -839,7 +1344,404 @@ def build_dataframe_from_java_request(req: JavaNLQueryRequest) -> pd.DataFrame:
         covered_paths.add(left_path)
         covered_paths.add(right_path)
 
-    return current_df if current_df is not None else load_dataframe_from_path(unique_paths[0])
+    if current_df is not None:
+        return current_df, {
+            "mode": "relationship_merge",
+            "relationshipsApplied": len(req.relationships),
+            "selectedSources": selected_sources,
+        }
+
+    selected_df, source_context = load_dataframe_from_path_with_question(
+        unique_paths[0],
+        question,
+        requested_sheet=req.sheetName,
+        force_all_sheets=force_all_sheets,
+    )
+    return selected_df, {
+        "mode": "single_source",
+        "selectedSources": [source_context],
+    }
+
+
+def log_query_trace(endpoint: str, trace: dict[str, Any]) -> None:
+    if not QUERY_TRACE_ENABLED:
+        return
+    try:
+        logger.info("QUERY_TRACE %s", json.dumps({"endpoint": endpoint, **trace}, default=str))
+    except Exception:
+        logger.info("QUERY_TRACE endpoint=%s trace=%s", endpoint, trace)
+
+def unresolved_question_key(question: str) -> str:
+    return re.sub(r"\s+", " ", question.strip().lower())
+
+
+def shorten_text(value: str, max_len: int) -> str:
+    if len(value) <= max_len:
+        return value
+    return value[:max_len] + f" ...[truncated {len(value) - max_len} chars]"
+
+
+def log_llm_trace(endpoint: str, payload: dict[str, Any]) -> None:
+    if not LLM_TRACE_ENABLED:
+        return
+    try:
+        logger.info("LLM_TRACE %s", json.dumps({"endpoint": endpoint, **payload}, default=str))
+    except Exception:
+        logger.info("LLM_TRACE endpoint=%s payload=%s", endpoint, payload)
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _extract_json_object(text: str) -> dict[str, Any]:
+    if not text:
+        return {}
+
+    candidate = text.strip()
+    if candidate.startswith("```"):
+        parts = candidate.split("```")
+        for block in parts:
+            block = block.strip()
+            if not block:
+                continue
+            if block.lower().startswith("json"):
+                block = block[4:].strip()
+            try:
+                parsed = json.loads(block)
+                return parsed if isinstance(parsed, dict) else {}
+            except Exception:
+                continue
+
+    try:
+        parsed = json.loads(candidate)
+        return parsed if isinstance(parsed, dict) else {}
+    except Exception:
+        pass
+
+    first = candidate.find("{")
+    last = candidate.rfind("}")
+    if first >= 0 and last > first:
+        snippet = candidate[first : last + 1]
+        try:
+            parsed = json.loads(snippet)
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def _sample_schema_for_understanding(df: pd.DataFrame, max_cols: int = 24, max_values: int = 4) -> str:
+    lines: list[str] = []
+    for col in list(df.columns)[:max_cols]:
+        series = to_1d_series(df, str(col))
+        non_null = series.dropna().astype(str)
+        unique_values = list(dict.fromkeys(non_null.tolist()))[:max_values]
+        sample = ", ".join(unique_values)
+        lines.append(f"- {col} ({series.dtype}) sample=[{sample}]")
+    return "\n".join(lines)
+
+
+def _build_understanding_prompt(df: pd.DataFrame, question: str) -> str:
+    schema = _sample_schema_for_understanding(df)
+    return f"""
+You are a multilingual query-understanding engine for analytics over uploaded tabular data.
+
+Your job:
+1. Understand the user's question.
+2. Ground it to the dataset schema.
+3. Return ONLY valid JSON.
+4. Do not invent columns that are not present in the schema.
+
+Supported intents:
+- count
+- lookup
+- schema
+- raw_rows
+- aggregation
+- group_aggregation
+- comparison
+- trend
+- relationship
+- chart
+- quality
+- ranking
+- unknown
+
+Rules:
+- Prefer exact schema column names when possible.
+- If the user wording is vague, map to the closest schema terms.
+- If multiple interpretations are possible, return alternatives ranked implicitly by confidence.
+- If the request seems workbook-wide, set workbookScope accordingly.
+- If clarification is needed, set clarificationNeeded=true and provide a short clarificationQuestion.
+- Detect likely filter operators such as =, !=, contains, startswith, endswith, between, is_null, not_null.
+- Detect likely roles such as filter, group, metric, time, identifier, target.
+
+Return JSON with exactly these keys:
+{{
+    "canonicalQuestion": "string",
+    "alternativeInterpretations": ["string"],
+    "language": "string",
+    "confidence": 0.0,
+    "reasoning": "short explanation",
+    "intentFamily": "count|lookup|schema|raw_rows|aggregation|group_aggregation|comparison|trend|relationship|chart|quality|ranking|unknown",
+    "outputMode": "scalar|rows|table|chart|table_and_chart|clarify",
+    "workbookScope": "single_sheet|all_sheets|unknown",
+    "columnCandidates": [
+        {{
+            "column": "string",
+            "role": "filter|group|metric|time|identifier|target",
+            "confidence": 0.0
+        }}
+    ],
+    "filters": [
+        {{
+            "column": "string",
+            "operator": "=|!=|>|>=|<|<=|contains|startswith|endswith|between|in|not_in|is_null|not_null",
+            "value": "string|null",
+            "confidence": 0.0
+        }}
+    ],
+    "timeRange": {{
+        "column": "string",
+        "from": "string",
+        "to": "string",
+        "confidence": 0.0
+    }},
+    "sort": [
+        {{
+            "column": "string",
+        "distinct": false,
+            "direction": "asc|desc",
+        "qualityChecks": ["duplicates|missing|nulls|outliers|invalid_format"],
+            "confidence": 0.0
+        }}
+    ],
+    "limit": 0,
+    "chartPreference": "auto|bar|line|area|pie|scatter|hist|box|violin|heatmap|none",
+    "clarificationNeeded": false,
+    "clarificationQuestion": "string"
+}}
+
+Schema:
+{schema}
+
+User question:
+{question}
+""".strip()
+
+
+def infer_question_understanding(df: pd.DataFrame, question: str, endpoint: str) -> dict[str, Any]:
+    enabled = _env_bool("APP_LLM_QUERY_UNDERSTANDING", True)
+    provider = os.getenv("LOCAL_LLM_PROVIDER", "none").strip().lower()
+    if not enabled or provider in {"", "none", "off", "disabled"}:
+        return {
+            "enabled": False,
+            "canonicalQuestion": question,
+            "alternativeInterpretations": [],
+            "alternatives": [],
+            "confidence": 0.0,
+            "reasoning": "LLM understanding disabled or unavailable.",
+            "intentFamily": "unknown",
+            "outputMode": "table",
+            "workbookScope": "unknown",
+            "columnCandidates": [],
+            "filters": [],
+            "timeRange": {},
+            "sort": [],
+            "limit": None,
+            "chartPreference": "none",
+            "clarificationNeeded": False,
+            "clarificationQuestion": "",
+        }
+
+    understanding_model = os.getenv("LOCAL_LLM_UNDERSTAND_MODEL", "").strip() or os.getenv("LOCAL_LLM_MODEL", "gamma13b").strip()
+    understanding_temp = _env_float("LOCAL_LLM_UNDERSTAND_TEMPERATURE", 0.2)
+    understanding_max_tokens = _env_int("LOCAL_LLM_UNDERSTAND_MAX_TOKENS", 1400)
+    understanding_timeout = _env_float("LOCAL_LLM_UNDERSTAND_TIMEOUT_SEC", 75.0)
+
+    system_prompt = (
+        "You are a multilingual query-understanding engine for analytics over tabular data. "
+        "Interpret user intent robustly across abbreviations and imperfect phrasing. "
+        "Output strictly valid JSON only."
+    )
+    prompt = _build_understanding_prompt(df, question)
+    raw = call_local_llm(
+        prompt,
+        system_prompt=system_prompt,
+        model_override=understanding_model,
+        temperature=understanding_temp,
+        max_tokens=understanding_max_tokens,
+        timeout_sec=understanding_timeout,
+    )
+
+    parsed = _extract_json_object(raw)
+    canonical = (
+        str(parsed.get("canonicalQuestion") or "").strip()
+        or str(parsed.get("canonical_question") or "").strip()
+        or question
+    )
+    alternatives_raw = parsed.get("alternativeInterpretations")
+    if alternatives_raw is None:
+        alternatives_raw = parsed.get("alternative_interpretations")
+    alternatives: list[str] = []
+    if isinstance(alternatives_raw, list):
+        for item in alternatives_raw:
+            val = str(item or "").strip()
+            if val:
+                alternatives.append(val)
+
+    confidence_raw = parsed.get("confidence", 0.0)
+    try:
+        confidence = max(0.0, min(1.0, float(confidence_raw)))
+    except (TypeError, ValueError):
+        confidence = 0.0
+
+    reasoning = str(parsed.get("reasoning") or "").strip()
+    language = str(parsed.get("language") or "").strip()
+    intent_family = str(parsed.get("intentFamily") or "unknown").strip() or "unknown"
+    output_mode = str(parsed.get("outputMode") or "table").strip() or "table"
+    workbook_scope = str(parsed.get("workbookScope") or "unknown").strip() or "unknown"
+    column_candidates = parsed.get("columnCandidates") if isinstance(parsed.get("columnCandidates"), list) else []
+    filters = parsed.get("filters") if isinstance(parsed.get("filters"), list) else []
+    if not filters and isinstance(parsed.get("filterCandidates"), list):
+        filters = parsed.get("filterCandidates")
+    time_range = parsed.get("timeRange") if isinstance(parsed.get("timeRange"), dict) else {}
+    sort = parsed.get("sort") if isinstance(parsed.get("sort"), list) else []
+    chart_preference = str(parsed.get("chartPreference") or "none").strip() or "none"
+    quality_checks = parsed.get("qualityChecks") if isinstance(parsed.get("qualityChecks"), list) else []
+    distinct = bool(parsed.get("distinct", False))
+    clarification_needed = bool(parsed.get("clarificationNeeded", False))
+    clarification_question = str(parsed.get("clarificationQuestion") or "").strip()
+
+    log_llm_trace(
+        endpoint,
+        {
+            "stage": "question_understanding",
+            "question": question,
+            "model": understanding_model,
+            "confidence": confidence,
+            "canonicalQuestion": canonical,
+            "intentFamily": intent_family,
+            "outputMode": output_mode,
+            "workbookScope": workbook_scope,
+            "columnCandidates": column_candidates,
+            "filters": filters,
+            "rawResponse": shorten_text(raw or "", LLM_TRACE_RESPONSE_MAX),
+        },
+    )
+
+    return {
+        "enabled": True,
+        "canonicalQuestion": canonical,
+        "alternativeInterpretations": alternatives,
+        "alternatives": alternatives,
+        "confidence": confidence,
+        "language": language,
+        "reasoning": reasoning,
+        "intentFamily": intent_family,
+        "outputMode": output_mode,
+        "workbookScope": workbook_scope,
+        "columnCandidates": column_candidates,
+        "filters": filters,
+        "filterCandidates": filters,
+        "timeRange": time_range,
+        "sort": sort,
+        "limit": parsed.get("limit"),
+        "distinct": distinct,
+        "chartPreference": chart_preference,
+        "qualityChecks": quality_checks,
+        "clarificationNeeded": clarification_needed,
+        "clarificationQuestion": clarification_question,
+        "rawParsed": parsed,
+    }
+
+
+def resolve_execution_question(
+    df: pd.DataFrame,
+    original_question: str,
+    endpoint: str,
+) -> tuple[str, str, dict[str, Any], dict[str, Any]]:
+    understanding = infer_question_understanding(df, original_question, endpoint)
+
+    candidates: list[str] = []
+    for candidate in [
+        understanding.get("canonicalQuestion"),
+        *(understanding.get("alternativeInterpretations") or understanding.get("alternatives") or []),
+        original_question,
+    ]:
+        value = str(candidate or "").strip()
+        if value and value not in candidates:
+            candidates.append(value)
+
+    if not candidates:
+        candidates = [original_question]
+
+    chosen_question = original_question
+    chosen_scope = "out_of_scope"
+    chosen_score = -1.0
+    for candidate in candidates:
+        relation = core_intents.fused_question_schema_relation(df, candidate, understanding=understanding)
+        scope = core_intents.classify_question_scope_hybrid(df, candidate, understanding=understanding)
+        score = float(relation.get("score") or 0.0)
+        bonus = 0.0
+        if candidate == understanding.get("canonicalQuestion"):
+            bonus += 0.08
+        if scope == "in_scope":
+            bonus += 0.15
+        elif scope == "clarify":
+            bonus += 0.05
+        final_score = score + bonus
+        if final_score > chosen_score:
+            chosen_score = final_score
+            chosen_question = candidate
+            chosen_scope = scope
+
+    plan = core_intents.build_query_plan(df, chosen_question, llm_understanding=understanding)
+    if str(plan.get("scope") or "") != "in_scope":
+        chosen_scope = str(plan.get("scope") or chosen_scope)
+
+    understanding["candidates"] = candidates
+    understanding["chosenQuestion"] = chosen_question
+    understanding["chosenScope"] = chosen_scope
+    understanding["chosenScore"] = round(chosen_score, 3)
+    return chosen_question, chosen_scope, understanding, plan
+
+
+def should_render_chart_with_original_intent(
+    original_question: str,
+    execution_question: str,
+    chart_type: str,
+    result_df: pd.DataFrame,
+) -> bool:
+    if core_intents.should_render_chart(execution_question, chart_type, result_df):
+        return True
+    if str(chart_type or "").lower() == "auto" and core_intents.asks_chart_request(original_question):
+        return True
+    return False
+
+
+def chart_type_from_plan(plan: Optional[dict[str, Any]], requested_chart_type: str) -> str:
+    plan_data = plan if isinstance(plan, dict) else {}
+    plan_pref = str(plan_data.get("chart_pref") or "").strip().lower()
+    if plan_pref and plan_pref not in {"", "auto", "none"}:
+        return plan_pref
+    return requested_chart_type
+
+
+def should_render_chart_from_plan_or_intent(
+    plan: Optional[dict[str, Any]],
+    original_question: str,
+    execution_question: str,
+    chart_type: str,
+    result_df: pd.DataFrame,
+) -> bool:
+    if core_intents.should_render_chart_from_plan(plan, result_df):
+        return True
+    return should_render_chart_with_original_intent(original_question, execution_question, chart_type, result_df)
 
 
 @app.get("/health")
@@ -848,17 +1750,40 @@ def health() -> dict[str, str]:
 
 
 @app.post("/preview-file")
-def preview_single_file(filePath: str, limit: int = Query(default=20, ge=1, le=200)) -> dict[str, Any]:
+def preview_single_file(
+    filePath: str,
+    limit: Optional[int] = Query(default=20, ge=1, le=200000),
+    sheetName: Optional[str] = Query(default=None),
+) -> dict[str, Any]:
     normalized = core_normalize_input_path(filePath)
     if not Path(normalized).exists():
         raise HTTPException(status_code=404, detail=f"File not found: {normalized}")
 
-    df = load_dataframe_from_path(normalized).head(limit)
+    selected_sheet: Optional[str] = None
+    available_sheets: list[str] = []
+    if _is_excel_path(normalized):
+        workbook = pd.read_excel(normalized, sheet_name=None)
+        if isinstance(workbook, dict) and workbook:
+            available_sheets = [str(name) for name in workbook.keys()]
+            if sheetName and sheetName in workbook:
+                selected_sheet = sheetName
+            else:
+                selected_sheet = available_sheets[0]
+            df = normalize_uploaded_dataframe(workbook[selected_sheet])
+        else:
+            df = pd.DataFrame()
+    else:
+        df = load_dataframe_from_path(normalized)
+
+    if limit is not None:
+        df = df.head(limit)
     records = coerce_json_safe(df.to_dict(orient="records"))
     profile = profile_dataframe(df)
 
     return {
         "filePath": normalized,
+        "sheetName": selected_sheet,
+        "sheetNames": available_sheets,
         "rows": records,
         "columns": [str(c) for c in df.columns],
         "columnProfile": profile,
@@ -867,37 +1792,169 @@ def preview_single_file(filePath: str, limit: int = Query(default=20, ge=1, le=2
 
 @app.post("/nl-query")
 def run_java_nl_query(req: JavaNLQueryRequest) -> dict[str, Any]:
-    question = req.question.strip()
+    original_question = req.question.strip()
+    question = original_question
     if not question:
         raise HTTPException(status_code=400, detail="question must not be empty")
 
-    df = build_dataframe_from_java_request(req)
+    df, data_context = build_dataframe_from_java_request(req, question)
+    question, scope, understanding_meta, plan = resolve_execution_question(df, question, endpoint="/nl-query")
 
-    if core_intents.should_use_rule_based(question):
-        result_df, summary_text = core_intents.default_fallback_result(df, question)
-        max_rows = len(result_df) if core_intents.wants_full_data(question) else 5000
-        result_preview = result_df.head(max_rows)
+    if (
+        str(plan.get("sheet_mode") or "") == "all_sheets"
+        and data_context.get("mode") == "single_source"
+        and data_context.get("selectedSources")
+    ):
+        df, data_context = build_dataframe_from_java_request(req, question, force_all_sheets=True)
+        question, scope, understanding_meta, plan = resolve_execution_question(df, question, endpoint="/nl-query")
+
+    trace = core_intents.build_reasoning_trace_v2(df, question, llm_understanding=understanding_meta)
+    trace["originalQuestion"] = original_question
+    trace["executionQuestion"] = question
+    trace["questionUnderstanding"] = understanding_meta
+    trace["queryPlan"] = plan
+    trace["dataContext"] = data_context
+    context_note = summarize_data_context(data_context)
+
+    if scope != "in_scope":
+        key = unresolved_question_key(original_question)
+        count = UNRESOLVED_QUESTION_COUNTS.get(key, 0) + 1
+        UNRESOLVED_QUESTION_COUNTS[key] = count
+        summary_text = (
+            str(plan.get("clarification_question") or "").strip()
+            if bool(plan.get("clarification_needed"))
+            else core_intents.build_scope_guidance(
+                df,
+                original_question,
+                escalation=count > 1,
+                out_of_scope=scope == "out_of_scope",
+            )
+        )
+        charts = [{"type": "none", "xField": None, "yField": None}]
+        trace["routing"] = "scope_guard"
+        trace["decisionPath"] = "scope_guard"
+        trace["scope"] = scope
+        trace["clarificationCount"] = count
+        trace["resultRows"] = 0
+        trace["chartReturned"] = False
+        log_query_trace("/nl-query", trace)
+        response = {
+            "rows": [],
+            "columns": [],
+            "chart": charts[0],
+            "charts": charts,
+            "summary": summary_text,
+            "generated_code": "clarification_needed",
+            "attempts": 0,
+            "dataContext": data_context,
+        }
+        if QUERY_TRACE_INCLUDE_IN_RESPONSE:
+            response["debugTrace"] = trace
+        return response
+
+    UNRESOLVED_QUESTION_COUNTS.pop(unresolved_question_key(original_question), None)
+
+    planner_result = core_intents.execute_query_plan(df, question, plan=plan, trace=trace)
+    if planner_result is not None:
+        result_df, summary_text = planner_result
+        result_preview, _ = core_intents.apply_requested_row_limit(result_df, question)
         rows = coerce_json_safe(result_preview.to_dict(orient="records"))
         columns = [str(c) for c in result_preview.columns]
+        resolved_chart_type = chart_type_from_plan(plan, req.chartType)
         charts = (
-            core_charts.render_charts(result_preview, req.chartType, CHART_DIR)
-            if core_intents.should_render_chart(question, req.chartType, result_preview)
+            core_charts.render_charts(result_preview, resolved_chart_type, CHART_DIR)
+            if should_render_chart_from_plan_or_intent(plan, original_question, question, resolved_chart_type, result_preview)
             else [{"type": "none", "xField": None, "yField": None}]
         )
-        return {
+        trace["routing"] = "planner_rule_based"
+        trace["resultRows"] = len(rows)
+        trace["chartReturned"] = charts[0].get("type") != "none"
+        log_query_trace("/nl-query", trace)
+        response = {
             "rows": rows,
             "columns": columns,
             "chart": charts[0],
             "charts": charts,
-            "summary": summary_text,
+            "summary": f"{summary_text} {context_note}".strip(),
             "generated_code": "rule_based",
             "attempts": 0,
+            "dataContext": data_context,
         }
+        if QUERY_TRACE_INCLUDE_IN_RESPONSE:
+            response["debugTrace"] = trace
+        return response
 
-    prompt = build_query_prompt(df, question)
-    generated = extract_code(call_local_llm(prompt))
+    if core_intents.should_use_rule_based(question) or str(plan.get("intent_family") or "unknown") != "unknown":
+        result_df, summary_text = core_intents.default_fallback_result(df, question, trace=trace)
+        result_preview, _ = core_intents.apply_requested_row_limit(result_df, question)
+        rows = coerce_json_safe(result_preview.to_dict(orient="records"))
+        columns = [str(c) for c in result_preview.columns]
+        resolved_chart_type = chart_type_from_plan(plan, req.chartType)
+        charts = (
+            core_charts.render_charts(result_preview, resolved_chart_type, CHART_DIR)
+            if should_render_chart_from_plan_or_intent(plan, original_question, question, resolved_chart_type, result_preview)
+            else [{"type": "none", "xField": None, "yField": None}]
+        )
+        trace["routing"] = "rule_based"
+        trace["resultRows"] = len(rows)
+        trace["chartReturned"] = charts[0].get("type") != "none"
+        log_query_trace("/nl-query", trace)
+        response = {
+            "rows": rows,
+            "columns": columns,
+            "chart": charts[0],
+            "charts": charts,
+            "summary": f"{summary_text} {context_note}".strip(),
+            "generated_code": "rule_based",
+            "attempts": 0,
+            "dataContext": data_context,
+        }
+        if QUERY_TRACE_INCLUDE_IN_RESPONSE:
+            response["debugTrace"] = trace
+        return response
+
+    prompt = build_query_prompt(df, question, data_context=data_context)
+    raw_llm_response = call_local_llm(prompt)
+    generated = extract_code(raw_llm_response)
+    log_llm_trace(
+        "/nl-query",
+        {
+            "stage": "initial_generation",
+            "question": question,
+            "prompt": shorten_text(prompt, LLM_TRACE_PROMPT_MAX),
+            "rawResponse": shorten_text(raw_llm_response or "", LLM_TRACE_RESPONSE_MAX),
+            "generatedCode": generated,
+        },
+    )
     if not generated:
-        generated = "result = df"
+        result_df, summary_text = core_intents.default_fallback_result(df, question, trace=trace)
+        result_preview, _ = core_intents.apply_requested_row_limit(result_df, question)
+        rows = coerce_json_safe(result_preview.to_dict(orient="records"))
+        columns = [str(c) for c in result_preview.columns]
+        resolved_chart_type = chart_type_from_plan(plan, req.chartType)
+        charts = (
+            core_charts.render_charts(result_preview, resolved_chart_type, CHART_DIR)
+            if should_render_chart_from_plan_or_intent(plan, original_question, question, resolved_chart_type, result_preview)
+            else [{"type": "none", "xField": None, "yField": None}]
+        )
+        trace["routing"] = "llm_empty_rule_fallback"
+        trace["llmReason"] = "empty_model_response"
+        trace["resultRows"] = len(rows)
+        trace["chartReturned"] = charts[0].get("type") != "none"
+        log_query_trace("/nl-query", trace)
+        response = {
+            "rows": rows,
+            "columns": columns,
+            "chart": charts[0],
+            "charts": charts,
+            "summary": f"{summary_text} {context_note}".strip(),
+            "generated_code": "rule_based_fallback",
+            "attempts": 0,
+            "dataContext": data_context,
+        }
+        if QUERY_TRACE_INCLUDE_IN_RESPONSE:
+            response["debugTrace"] = trace
+        return response
 
     attempts = 1
     status = "success"
@@ -905,6 +1962,15 @@ def run_java_nl_query(req: JavaNLQueryRequest) -> dict[str, Any]:
     try:
         result_df = execute_query_code(df, generated)
     except Exception as first_error:
+        log_llm_trace(
+            "/nl-query",
+            {
+                "stage": "first_execution_failed",
+                "question": question,
+                "generatedCode": generated,
+                "error": str(first_error),
+            },
+        )
         retry_prompt = (
             prompt
             + "\n\n"
@@ -912,30 +1978,59 @@ def run_java_nl_query(req: JavaNLQueryRequest) -> dict[str, Any]:
             + f"Error:\n{first_error}\n"
             + "Please return corrected code only."
         )
-        retry_code = extract_code(call_local_llm(retry_prompt))
+        raw_retry_response = call_local_llm(retry_prompt)
+        retry_code = extract_code(raw_retry_response)
+        log_llm_trace(
+            "/nl-query",
+            {
+                "stage": "retry_generation",
+                "question": question,
+                "retryPrompt": shorten_text(retry_prompt, LLM_TRACE_PROMPT_MAX),
+                "rawRetryResponse": shorten_text(raw_retry_response or "", LLM_TRACE_RESPONSE_MAX),
+                "retryCode": retry_code,
+            },
+        )
         attempts += 1
         if retry_code:
             generated = retry_code
             try:
                 result_df = execute_query_code(df, generated)
-            except Exception:
+            except Exception as second_error:
                 attempts += 1
                 status = "failed"
                 generated = "result = df"
-                result_df, fallback_summary = default_fallback_result(df, question)
+                result_df, fallback_summary = core_intents.default_fallback_result(df, question, trace=trace)
+                log_llm_trace(
+                    "/nl-query",
+                    {
+                        "stage": "retry_execution_failed",
+                        "question": question,
+                        "retryCode": retry_code,
+                        "error": str(second_error),
+                        "fallbackSummary": fallback_summary,
+                    },
+                )
         else:
             status = "failed"
             generated = "result = df"
-            result_df, fallback_summary = default_fallback_result(df, question)
+            result_df, fallback_summary = core_intents.default_fallback_result(df, question, trace=trace)
+            log_llm_trace(
+                "/nl-query",
+                {
+                    "stage": "retry_code_empty",
+                    "question": question,
+                    "fallbackSummary": fallback_summary,
+                },
+            )
 
-    max_rows = len(result_df) if core_intents.wants_full_data(question) else 5000
-    result_preview = result_df.head(max_rows)
+    result_preview, _ = core_intents.apply_requested_row_limit(result_df, question)
     rows = coerce_json_safe(result_preview.to_dict(orient="records"))
     columns = [str(c) for c in result_preview.columns]
 
+    resolved_chart_type = chart_type_from_plan(plan, req.chartType)
     charts = (
-        core_charts.render_charts(result_preview, req.chartType, CHART_DIR)
-        if core_intents.should_render_chart(question, req.chartType, result_preview)
+        core_charts.render_charts(result_preview, resolved_chart_type, CHART_DIR)
+        if should_render_chart_from_plan_or_intent(plan, original_question, question, resolved_chart_type, result_preview)
         else [{"type": "none", "xField": None, "yField": None}]
     )
     chart_spec = charts[0]
@@ -943,8 +2038,18 @@ def run_java_nl_query(req: JavaNLQueryRequest) -> dict[str, Any]:
     summary = f"Returned {len(rows)} rows from {len(df)} input rows ({status})."
     if status == "failed" and 'fallback_summary' in locals():
         summary = f"{summary} {fallback_summary}"
+    if context_note:
+        summary = f"{summary} {context_note}".strip()
 
-    return {
+    trace["routing"] = "llm"
+    trace["attempts"] = attempts
+    trace["status"] = status
+    trace["generatedCode"] = generated
+    trace["resultRows"] = len(rows)
+    trace["chartReturned"] = chart_spec.get("type") != "none"
+    log_query_trace("/nl-query", trace)
+
+    response = {
         "rows": rows,
         "columns": columns,
         "chart": chart_spec,
@@ -952,7 +2057,11 @@ def run_java_nl_query(req: JavaNLQueryRequest) -> dict[str, Any]:
         "summary": summary,
         "generated_code": generated,
         "attempts": attempts,
+        "dataContext": data_context,
     }
+    if QUERY_TRACE_INCLUDE_IN_RESPONSE:
+        response["debugTrace"] = trace
+    return response
 
 
 @app.post("/auth/register", response_model=AuthResponse)
@@ -1042,13 +2151,15 @@ async def upload_datasets(
                     "name": Path(file.filename or "dataset").stem,
                     "sheetName": None,
                     "columns": profile,
+                    "rowCount": int(len(df)),
+                    "columnCount": int(len(df.columns)),
                 }
             )
         else:
             sheets = pd.read_excel(disk_path, sheet_name=None)
             selected_sheet_names = list(sheets.keys()) if parseAllSheets else [next(iter(sheets.keys()))]
             for sheet_name in selected_sheet_names:
-                df = sheets[sheet_name]
+                df = normalize_uploaded_dataframe(sheets[sheet_name])
                 profile = profile_dataframe(df)
                 cur.execute(
                     """
@@ -1071,6 +2182,8 @@ async def upload_datasets(
                         "name": Path(file.filename or "dataset").stem,
                         "sheetName": sheet_name,
                         "columns": profile,
+                        "rowCount": int(len(df)),
+                        "columnCount": int(len(df.columns)),
                     }
                 )
 
@@ -1108,11 +2221,13 @@ def list_datasets(user_id: int = Depends(get_current_user_id)) -> dict[str, Any]
 @app.get("/datasets/{dataset_id}/preview", response_model=DatasetPreviewResponse)
 def preview_dataset(
     dataset_id: int,
-    limit: int = Query(default=20, ge=1, le=200),
+    limit: Optional[int] = Query(default=20, ge=1, le=200000),
     user_id: int = Depends(get_current_user_id),
 ) -> DatasetPreviewResponse:
     row = get_dataset_row(user_id, dataset_id)
-    df = load_dataframe(row["file_path"], row["sheet_name"]).head(limit)
+    df = load_dataframe(row["file_path"], row["sheet_name"])
+    if limit is not None:
+        df = df.head(limit)
 
     records = coerce_json_safe(df.to_dict(orient="records"))
     return DatasetPreviewResponse(
@@ -1206,27 +2321,114 @@ def run_nl_query(
     req: NLQueryRequest,
     user_id: int = Depends(get_current_user_id),
 ) -> NLQueryResponse:
-    question = req.question.strip()
+    original_question = req.question.strip()
+    question = original_question
     if not question:
         raise HTTPException(status_code=400, detail="question must not be empty")
 
     if not req.datasetId and not req.relationshipId:
         raise HTTPException(status_code=400, detail="Provide datasetId or relationshipId")
 
+    prompt_context: dict[str, Any] = {}
     if req.relationshipId:
         df = build_joined_dataframe(user_id, req.relationshipId)
+        prompt_context = {
+            "mode": "relationship_merge",
+            "selectedSources": [{"mode": "relationship", "filePath": f"relationship:{req.relationshipId}"}],
+        }
     else:
-        df = load_dataset_df(user_id, int(req.datasetId))
+        dataset_row = get_dataset_row(user_id, int(req.datasetId))
+        df = load_dataframe(dataset_row["file_path"], dataset_row["sheet_name"])
+        prompt_context = {
+            "mode": "single_source",
+            "selectedSources": [
+                {
+                    "sourceType": dataset_row["source_type"],
+                    "filePath": dataset_row["file_path"],
+                    "mode": "selected_sheet" if dataset_row["sheet_name"] else "single_file",
+                    "selectedSheet": dataset_row["sheet_name"],
+                }
+            ],
+        }
 
-    if core_intents.should_use_rule_based(question):
-        result_df, summary_text = core_intents.default_fallback_result(df, question)
-        max_rows = len(result_df) if core_intents.wants_full_data(question) else 5000
-        result_preview = result_df.head(max_rows)
+    question, scope, understanding_meta, plan = resolve_execution_question(df, question, endpoint="/query")
+    trace = core_intents.build_reasoning_trace_v2(df, question, llm_understanding=understanding_meta)
+    trace["originalQuestion"] = original_question
+    trace["executionQuestion"] = question
+    trace["questionUnderstanding"] = understanding_meta
+    trace["queryPlan"] = plan
+
+    if scope != "in_scope":
+        key = unresolved_question_key(original_question)
+        count = UNRESOLVED_QUESTION_COUNTS.get(key, 0) + 1
+        UNRESOLVED_QUESTION_COUNTS[key] = count
+        summary_text = (
+            str(plan.get("clarification_question") or "").strip()
+            if bool(plan.get("clarification_needed"))
+            else core_intents.build_scope_guidance(
+                df,
+                original_question,
+                escalation=count > 1,
+                out_of_scope=scope == "out_of_scope",
+            )
+        )
+        charts = [{"type": "none", "xField": None, "yField": None}]
+
+        conn = get_db()
+        conn.execute(
+            """
+            INSERT INTO query_history (
+                user_id, dataset_id, relationship_id, question, generated_code,
+                status, error, result_preview_json, chart_file_name, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                req.datasetId,
+                req.relationshipId,
+                original_question,
+                "clarification_needed",
+                "success",
+                None,
+                json.dumps([]),
+                None,
+                utc_now(),
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        trace["routing"] = "scope_guard"
+        trace["decisionPath"] = "scope_guard"
+        trace["scope"] = scope
+        trace["clarificationCount"] = count
+        trace["resultRows"] = 0
+        trace["chartReturned"] = False
+        log_query_trace("/query", trace)
+
+        return NLQueryResponse(
+            rows=[],
+            columns=[],
+            chart=charts[0],
+            charts=charts,
+            summary=summary_text,
+            generated_code="clarification_needed",
+            attempts=0,
+            debugTrace=trace if QUERY_TRACE_INCLUDE_IN_RESPONSE else None,
+        )
+
+    UNRESOLVED_QUESTION_COUNTS.pop(unresolved_question_key(original_question), None)
+
+    planner_result = core_intents.execute_query_plan(df, question, plan=plan, trace=trace)
+    if planner_result is not None:
+        result_df, summary_text = planner_result
+        result_preview, _ = core_intents.apply_requested_row_limit(result_df, question)
         rows = coerce_json_safe(result_preview.to_dict(orient="records"))
         columns = [str(c) for c in result_preview.columns]
+        resolved_chart_type = chart_type_from_plan(plan, req.chartType)
         charts = (
-            core_charts.render_charts(result_preview, req.chartType, CHART_DIR)
-            if core_intents.should_render_chart(question, req.chartType, result_preview)
+            core_charts.render_charts(result_preview, resolved_chart_type, CHART_DIR)
+            if should_render_chart_from_plan_or_intent(plan, original_question, question, resolved_chart_type, result_preview)
             else [{"type": "none", "xField": None, "yField": None}]
         )
         chart_spec = charts[0]
@@ -1246,7 +2448,7 @@ def run_nl_query(
                 user_id,
                 req.datasetId,
                 req.relationshipId,
-                question,
+                original_question,
                 "rule_based",
                 "success",
                 None,
@@ -1258,6 +2460,11 @@ def run_nl_query(
         conn.commit()
         conn.close()
 
+        trace["routing"] = "planner_rule_based"
+        trace["resultRows"] = len(rows)
+        trace["chartReturned"] = chart_spec.get("type") != "none"
+        log_query_trace("/query", trace)
+
         return NLQueryResponse(
             rows=rows,
             columns=columns,
@@ -1266,12 +2473,134 @@ def run_nl_query(
             summary=summary_text,
             generated_code="rule_based",
             attempts=0,
+            debugTrace=trace if QUERY_TRACE_INCLUDE_IN_RESPONSE else None,
         )
 
-    prompt = build_query_prompt(df, question)
-    generated = extract_code(call_local_llm(prompt))
+    if core_intents.should_use_rule_based(question) or str(plan.get("intent_family") or "unknown") != "unknown":
+        result_df, summary_text = core_intents.default_fallback_result(df, question, trace=trace)
+        result_preview, _ = core_intents.apply_requested_row_limit(result_df, question)
+        rows = coerce_json_safe(result_preview.to_dict(orient="records"))
+        columns = [str(c) for c in result_preview.columns]
+        resolved_chart_type = chart_type_from_plan(plan, req.chartType)
+        charts = (
+            core_charts.render_charts(result_preview, resolved_chart_type, CHART_DIR)
+            if should_render_chart_from_plan_or_intent(plan, original_question, question, resolved_chart_type, result_preview)
+            else [{"type": "none", "xField": None, "yField": None}]
+        )
+        chart_spec = charts[0]
+        chart_file_name = None
+        if chart_spec.get("downloadUrl"):
+            chart_file_name = str(chart_spec["downloadUrl"]).split("/")[-1]
+
+        conn = get_db()
+        conn.execute(
+            """
+            INSERT INTO query_history (
+                user_id, dataset_id, relationship_id, question, generated_code,
+                status, error, result_preview_json, chart_file_name, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                req.datasetId,
+                req.relationshipId,
+                original_question,
+                "rule_based",
+                "success",
+                None,
+                json.dumps(rows[:30]),
+                chart_file_name,
+                utc_now(),
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        trace["routing"] = "rule_based"
+        trace["resultRows"] = len(rows)
+        trace["chartReturned"] = chart_spec.get("type") != "none"
+        log_query_trace("/query", trace)
+
+        return NLQueryResponse(
+            rows=rows,
+            columns=columns,
+            chart=chart_spec,
+            charts=charts,
+            summary=summary_text,
+            generated_code="rule_based",
+            attempts=0,
+            debugTrace=trace if QUERY_TRACE_INCLUDE_IN_RESPONSE else None,
+        )
+
+    prompt = build_query_prompt(df, question, data_context=prompt_context)
+    raw_llm_response = call_local_llm(prompt)
+    generated = extract_code(raw_llm_response)
+    log_llm_trace(
+        "/query",
+        {
+            "stage": "initial_generation",
+            "question": question,
+            "prompt": shorten_text(prompt, LLM_TRACE_PROMPT_MAX),
+            "rawResponse": shorten_text(raw_llm_response or "", LLM_TRACE_RESPONSE_MAX),
+            "generatedCode": generated,
+        },
+    )
     if not generated:
-        generated = "result = df"
+        result_df, summary_text = core_intents.default_fallback_result(df, question, trace=trace)
+        result_preview, _ = core_intents.apply_requested_row_limit(result_df, question)
+        rows = coerce_json_safe(result_preview.to_dict(orient="records"))
+        columns = [str(c) for c in result_preview.columns]
+        resolved_chart_type = chart_type_from_plan(plan, req.chartType)
+        charts = (
+            core_charts.render_charts(result_preview, resolved_chart_type, CHART_DIR)
+            if should_render_chart_from_plan_or_intent(plan, original_question, question, resolved_chart_type, result_preview)
+            else [{"type": "none", "xField": None, "yField": None}]
+        )
+        chart_spec = charts[0]
+        chart_file_name = None
+        if chart_spec.get("downloadUrl"):
+            chart_file_name = str(chart_spec["downloadUrl"]).split("/")[-1]
+
+        conn = get_db()
+        conn.execute(
+            """
+            INSERT INTO query_history (
+                user_id, dataset_id, relationship_id, question, generated_code,
+                status, error, result_preview_json, chart_file_name, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                user_id,
+                req.datasetId,
+                req.relationshipId,
+                original_question,
+                "rule_based_fallback",
+                "success",
+                None,
+                json.dumps(rows[:30]),
+                chart_file_name,
+                utc_now(),
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        trace["routing"] = "llm_empty_rule_fallback"
+        trace["llmReason"] = "empty_model_response"
+        trace["resultRows"] = len(rows)
+        trace["chartReturned"] = chart_spec.get("type") != "none"
+        log_query_trace("/query", trace)
+
+        return NLQueryResponse(
+            rows=rows,
+            columns=columns,
+            chart=chart_spec,
+            charts=charts,
+            summary=summary_text,
+            generated_code="rule_based_fallback",
+            attempts=0,
+            debugTrace=trace if QUERY_TRACE_INCLUDE_IN_RESPONSE else None,
+        )
 
     attempts = 1
     status = "success"
@@ -1280,6 +2609,15 @@ def run_nl_query(
     try:
         result_df = execute_query_code(df, generated)
     except Exception as first_error:
+        log_llm_trace(
+            "/query",
+            {
+                "stage": "first_execution_failed",
+                "question": question,
+                "generatedCode": generated,
+                "error": str(first_error),
+            },
+        )
         retry_prompt = (
             prompt
             + "\n\n"
@@ -1287,7 +2625,18 @@ def run_nl_query(
             + f"Error:\n{first_error}\n"
             + "Please return corrected code only."
         )
-        retry_code = extract_code(call_local_llm(retry_prompt))
+        raw_retry_response = call_local_llm(retry_prompt)
+        retry_code = extract_code(raw_retry_response)
+        log_llm_trace(
+            "/query",
+            {
+                "stage": "retry_generation",
+                "question": question,
+                "retryPrompt": shorten_text(retry_prompt, LLM_TRACE_PROMPT_MAX),
+                "rawRetryResponse": shorten_text(raw_retry_response or "", LLM_TRACE_RESPONSE_MAX),
+                "retryCode": retry_code,
+            },
+        )
         if retry_code:
             attempts += 1
             generated = retry_code
@@ -1298,22 +2647,40 @@ def run_nl_query(
                 status = "failed"
                 error_text = str(second_error)
                 generated = "result = df"
-                result_df, fallback_summary = default_fallback_result(df, question)
+                result_df, fallback_summary = core_intents.default_fallback_result(df, question, trace=trace)
+                log_llm_trace(
+                    "/query",
+                    {
+                        "stage": "retry_execution_failed",
+                        "question": question,
+                        "retryCode": retry_code,
+                        "error": str(second_error),
+                        "fallbackSummary": fallback_summary,
+                    },
+                )
         else:
             attempts += 1
             status = "failed"
             error_text = str(first_error)
             generated = "result = df"
-            result_df, fallback_summary = default_fallback_result(df, question)
+            result_df, fallback_summary = core_intents.default_fallback_result(df, question, trace=trace)
+            log_llm_trace(
+                "/query",
+                {
+                    "stage": "retry_code_empty",
+                    "question": question,
+                    "fallbackSummary": fallback_summary,
+                },
+            )
 
-    max_rows = len(result_df) if core_intents.wants_full_data(question) else 5000
-    result_preview = result_df.head(max_rows)
+    result_preview, _ = core_intents.apply_requested_row_limit(result_df, question)
     rows = coerce_json_safe(result_preview.to_dict(orient="records"))
     columns = [str(c) for c in result_preview.columns]
 
+    resolved_chart_type = chart_type_from_plan(plan, req.chartType)
     charts = (
-        core_charts.render_charts(result_preview, req.chartType, CHART_DIR)
-        if core_intents.should_render_chart(question, req.chartType, result_preview)
+        core_charts.render_charts(result_preview, resolved_chart_type, CHART_DIR)
+        if should_render_chart_from_plan_or_intent(plan, original_question, question, resolved_chart_type, result_preview)
         else [{"type": "none", "xField": None, "yField": None}]
     )
     chart_spec = charts[0]
@@ -1337,7 +2704,7 @@ def run_nl_query(
             user_id,
             req.datasetId,
             req.relationshipId,
-            question,
+            original_question,
             generated,
             status,
             error_text,
@@ -1349,6 +2716,14 @@ def run_nl_query(
     conn.commit()
     conn.close()
 
+    trace["routing"] = "llm"
+    trace["attempts"] = attempts
+    trace["status"] = status
+    trace["generatedCode"] = generated
+    trace["resultRows"] = len(rows)
+    trace["chartReturned"] = chart_spec.get("type") != "none"
+    log_query_trace("/query", trace)
+
     return NLQueryResponse(
         rows=rows,
         columns=columns,
@@ -1357,6 +2732,7 @@ def run_nl_query(
         summary=summary,
         generated_code=generated,
         attempts=attempts,
+        debugTrace=trace if QUERY_TRACE_INCLUDE_IN_RESPONSE else None,
     )
 
 
