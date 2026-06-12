@@ -1,0 +1,255 @@
+:root {
+  --bg: #f6f4ef;
+  --surface: #fffdf8;
+  --surface-2: #f0ebe2;
+  --text: #1f1d1a;
+  --muted: #666155;
+  --accent: #0f7b6c;
+  --accent-2: #ef8354;
+  --border: #dfd6c8;
+  --shadow: 0 10px 30px rgba(38, 34, 27, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(239, 131, 84, 0.18), transparent 30%),
+    radial-gradient(circle at 90% 80%, rgba(15, 123, 108, 0.2), transparent 35%),
+    var(--bg);
+  color: var(--text);
+}
+
+h1, h2, h3 {
+  font-family: "Cabin Condensed", sans-serif;
+  letter-spacing: 0.4px;
+  margin-top: 0;
+}
+
+input, select, button {
+  font: inherit;
+}
+
+input, select {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: white;
+  padding: 10px 12px;
+}
+
+button {
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary {
+  border-radius: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(120deg, var(--accent), #11998e);
+  color: #fff;
+  font-weight: 600;
+}
+
+.auth-shell,
+.tenant-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.auth-card,
+.tenant-card {
+  width: min(520px, 100%);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  border-radius: 18px;
+  padding: 24px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0;
+}
+
+.tabs button {
+  flex: 1;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+
+.tabs button.active {
+  background: var(--accent);
+  color: white;
+}
+
+label {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 250px 1fr;
+}
+
+.sidebar {
+  background: #1f2a2f;
+  color: #f3f0ea;
+  display: flex;
+  flex-direction: column;
+  padding: 18px;
+  gap: 12px;
+}
+
+.sidebar nav {
+  display: grid;
+  gap: 8px;
+}
+
+.sidebar button {
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.sidebar button.active {
+  background: var(--accent-2);
+  color: #151515;
+}
+
+.sidebar .logout {
+  margin-top: auto;
+}
+
+.content {
+  padding: 20px;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 18px;
+}
+
+.stack {
+  display: grid;
+  gap: 16px;
+}
+
+.grid-three {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.inline-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.form-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.dropzone {
+  border: 2px dashed var(--accent);
+  border-radius: 14px;
+  background: #e7f5f2;
+  padding: 28px;
+  text-align: center;
+}
+
+.dropzone.active {
+  background: #d4efe9;
+}
+
+.list-clean {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--border);
+  padding: 8px;
+  text-align: left;
+}
+
+.chart {
+  width: 100%;
+  margin-top: 10px;
+  border-radius: 8px;
+}
+
+pre {
+  white-space: pre-wrap;
+  font-size: 12px;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.answer {
+  padding: 12px;
+  border-radius: 10px;
+  background: #edf7f5;
+  border: 1px solid #cfe8e3;
+}
+
+@media (max-width: 920px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .grid-three {
+    grid-template-columns: 1fr;
+  }
+}

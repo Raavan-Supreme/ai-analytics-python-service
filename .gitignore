@@ -1,0 +1,63 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.tmp
+*.temp
+.idea/
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+python-service/.venv/
+python-service/data/uploads/
+python-service/data/charts/
+python-service/data/app.db
+python-service/data/*.db
+
+# Node / frontend
+node_modules/
+frontend/node_modules/
+hackathoz_frontend_rebuild_v3/node_modules/
+frontend/dist/
+hackathoz_frontend_rebuild_v3/dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Java / Maven
+backend-java/target/
+backend-java/.mvn/
+*.class
+*.jar
+*.war
+*.ear
+
+# Runtime logs and local env
+*.log
+.env
+.env.*
+!.env.example
+
+# Data exports and generated files
+backend-java/storage/
+*.csv
+*.xlsx
+*.xls
+*.zip
+
+# Git metadata in nested folders (safety)
+**/.git/

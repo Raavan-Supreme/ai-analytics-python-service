@@ -1,0 +1,44 @@
+project:
+  scope_path: "."
+  loc: 10232
+  languages: [python, java, javascript]
+  git: false
+  structure:
+    backend-java: "Java backend service (Maven project)"
+    frontend: "Primary Vite React frontend"
+    hackathoz_frontend_rebuild_v3: "Alternate React frontend rebuild"
+    python-service: "FastAPI NL query service and core intent logic"
+  notes: "Monorepo with Python, Java, and React components; current task targets planner integration in python-service."
+
+assessment:
+  change_type: upgrade
+  rationale: |
+    Request is an in-place structural rewrite within the same Python/FastAPI stack.
+    It introduces planner-first deterministic routing while preserving existing capability and API behavior.
+  transformations:
+    - fromStack: "Python FastAPI NL query handlers with helper-based routing"
+      fromStackVersion: "current"
+      toStack: "Python FastAPI NL query handlers with canonical QueryPlan planner-first routing"
+      toStackVersion: "current"
+  grouping_needed: false
+  deep_planning: false
+
+progress_sync:
+  run_id: ad00abc5-da89-4874-b9c9-60ff2bc23500
+  grouping_mode: none
+  execution_mode: all-at-once
+  plan_start_time: 2026-06-11T04:37:43Z
+  plan_completed_time: 2026-06-11T04:39:37Z
+  execution_start_time: 2026-06-11T04:40:16Z
+  execution_completed_time: 2026-06-11T04:56:52Z
+  validation_start_time: 2026-06-11T04:56:52Z
+  validation_completed_time: 2026-06-11T04:56:52Z
+  total_phases: 1
+  completed_phases: 1
+  total_modules: 4
+  completed_modules: 1
+  total_tasks: 1
+  completed_tasks: 1
+  total_commits: 0
+  build_verified: false
+  test_verified: false
