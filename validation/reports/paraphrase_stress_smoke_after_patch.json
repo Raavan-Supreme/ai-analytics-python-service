@@ -1,0 +1,3824 @@
+{
+  "config": {
+    "rows_per_dataset": 5000,
+    "dataset_count": 12,
+    "rounds": 1,
+    "questions_per_round_per_dataset": 60,
+    "trace_enabled": false,
+    "seed": 42,
+    "iterations_requested": 1,
+    "iterations_executed": 1,
+    "target_accuracy": 1.0,
+    "target_consistency": 1.0
+  },
+  "overall": {
+    "total_questions": 720,
+    "passed": 506,
+    "failed": 214,
+    "accuracy": 0.7028,
+    "consistency_groups": 72,
+    "consistency_pass": 10,
+    "consistency_accuracy": 0.1389,
+    "total_runtime_sec": 59.129,
+    "throughput_qps": 12.177
+  },
+  "intent_metrics": {
+    "lookup_sarah": {
+      "total": 120,
+      "passed": 84,
+      "failed": 36,
+      "accuracy": 0.7,
+      "p50_ms": 104.009,
+      "p95_ms": 170.062,
+      "avg_ms": 101.964
+    },
+    "starts_with_10": {
+      "total": 120,
+      "passed": 48,
+      "failed": 72,
+      "accuracy": 0.4,
+      "p50_ms": 150.414,
+      "p95_ms": 275.515,
+      "avg_ms": 164.56
+    },
+    "distinct_names_count": {
+      "total": 120,
+      "passed": 94,
+      "failed": 26,
+      "accuracy": 0.7833,
+      "p50_ms": 54.524,
+      "p95_ms": 75.125,
+      "avg_ms": 56.472
+    },
+    "duplicate_id_count": {
+      "total": 120,
+      "passed": 100,
+      "failed": 20,
+      "accuracy": 0.8333,
+      "p50_ms": 51.276,
+      "p95_ms": 88.467,
+      "avg_ms": 55.967
+    },
+    "missing_email_count": {
+      "total": 120,
+      "passed": 84,
+      "failed": 36,
+      "accuracy": 0.7,
+      "p50_ms": 49.411,
+      "p95_ms": 63.497,
+      "avg_ms": 51.879
+    },
+    "total_rows_count": {
+      "total": 120,
+      "passed": 96,
+      "failed": 24,
+      "accuracy": 0.8,
+      "p50_ms": 49.476,
+      "p95_ms": 104.556,
+      "avg_ms": 58.817
+    }
+  },
+  "consistency": [
+    {
+      "dataset": "donations_style",
+      "intent": "lookup_sarah",
+      "consistent": false,
+      "actual_values": [
+        0,
+        2580
+      ],
+      "expected": [
+        2580
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "donations_style",
+      "intent": "starts_with_10",
+      "consistent": false,
+      "actual_values": [
+        0,
+        4578,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 4,
+      "accuracy": 0.4
+    },
+    {
+      "dataset": "donations_style",
+      "intent": "distinct_names_count",
+      "consistent": false,
+      "actual_values": [
+        30,
+        1999
+      ],
+      "expected": [
+        30
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "donations_style",
+      "intent": "duplicate_id_count",
+      "consistent": true,
+      "actual_values": [
+        3131
+      ],
+      "expected": [
+        3131
+      ],
+      "total": 10,
+      "passed": 10,
+      "accuracy": 1.0
+    },
+    {
+      "dataset": "donations_style",
+      "intent": "missing_email_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        3000,
+        5000
+      ],
+      "expected": [
+        3000
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "donations_style",
+      "intent": "total_rows_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "retail_style",
+      "intent": "lookup_sarah",
+      "consistent": false,
+      "actual_values": [
+        0,
+        2593
+      ],
+      "expected": [
+        2593
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "retail_style",
+      "intent": "starts_with_10",
+      "consistent": false,
+      "actual_values": [
+        0,
+        4605,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 4,
+      "accuracy": 0.4
+    },
+    {
+      "dataset": "retail_style",
+      "intent": "distinct_names_count",
+      "consistent": false,
+      "actual_values": [
+        30,
+        2000,
+        3176
+      ],
+      "expected": [
+        30
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "retail_style",
+      "intent": "duplicate_id_count",
+      "consistent": true,
+      "actual_values": [
+        3170
+      ],
+      "expected": [
+        3170
+      ],
+      "total": 10,
+      "passed": 10,
+      "accuracy": 1.0
+    },
+    {
+      "dataset": "retail_style",
+      "intent": "missing_email_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        3000,
+        5000
+      ],
+      "expected": [
+        3000
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "retail_style",
+      "intent": "total_rows_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "transactions_style",
+      "intent": "lookup_sarah",
+      "consistent": false,
+      "actual_values": [
+        0,
+        2580
+      ],
+      "expected": [
+        2580
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "transactions_style",
+      "intent": "starts_with_10",
+      "consistent": false,
+      "actual_values": [
+        0,
+        4601,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 4,
+      "accuracy": 0.4
+    },
+    {
+      "dataset": "transactions_style",
+      "intent": "distinct_names_count",
+      "consistent": false,
+      "actual_values": [
+        30,
+        3182
+      ],
+      "expected": [
+        30
+      ],
+      "total": 10,
+      "passed": 9,
+      "accuracy": 0.9
+    },
+    {
+      "dataset": "transactions_style",
+      "intent": "duplicate_id_count",
+      "consistent": true,
+      "actual_values": [
+        3136
+      ],
+      "expected": [
+        3136
+      ],
+      "total": 10,
+      "passed": 10,
+      "accuracy": 1.0
+    },
+    {
+      "dataset": "transactions_style",
+      "intent": "missing_email_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        3000,
+        5000
+      ],
+      "expected": [
+        3000
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "transactions_style",
+      "intent": "total_rows_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "intent": "lookup_sarah",
+      "consistent": false,
+      "actual_values": [
+        0,
+        2584
+      ],
+      "expected": [
+        2584
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "intent": "starts_with_10",
+      "consistent": false,
+      "actual_values": [
+        0,
+        4591,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 4,
+      "accuracy": 0.4
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "intent": "distinct_names_count",
+      "consistent": false,
+      "actual_values": [
+        30,
+        2000,
+        3207
+      ],
+      "expected": [
+        30
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "intent": "duplicate_id_count",
+      "consistent": true,
+      "actual_values": [
+        3110
+      ],
+      "expected": [
+        3110
+      ],
+      "total": 10,
+      "passed": 10,
+      "accuracy": 1.0
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "intent": "missing_email_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        3000,
+        5000
+      ],
+      "expected": [
+        3000
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "intent": "total_rows_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "intent": "lookup_sarah",
+      "consistent": false,
+      "actual_values": [
+        0,
+        2587
+      ],
+      "expected": [
+        2587
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "intent": "starts_with_10",
+      "consistent": false,
+      "actual_values": [
+        0,
+        4579,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 4,
+      "accuracy": 0.4
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "intent": "distinct_names_count",
+      "consistent": false,
+      "actual_values": [
+        30,
+        1999,
+        3220
+      ],
+      "expected": [
+        30
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "intent": "duplicate_id_count",
+      "consistent": true,
+      "actual_values": [
+        3097
+      ],
+      "expected": [
+        3097
+      ],
+      "total": 10,
+      "passed": 10,
+      "accuracy": 1.0
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "intent": "missing_email_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        3000,
+        5000
+      ],
+      "expected": [
+        3000
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "intent": "total_rows_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "intent": "lookup_sarah",
+      "consistent": false,
+      "actual_values": [
+        0,
+        2579
+      ],
+      "expected": [
+        2579
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "intent": "starts_with_10",
+      "consistent": false,
+      "actual_values": [
+        0,
+        4613,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 4,
+      "accuracy": 0.4
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "intent": "distinct_names_count",
+      "consistent": false,
+      "actual_values": [
+        30,
+        2000,
+        3185
+      ],
+      "expected": [
+        30
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "intent": "duplicate_id_count",
+      "consistent": true,
+      "actual_values": [
+        3109
+      ],
+      "expected": [
+        3109
+      ],
+      "total": 10,
+      "passed": 10,
+      "accuracy": 1.0
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "intent": "missing_email_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        3000,
+        5000
+      ],
+      "expected": [
+        3000
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "intent": "total_rows_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "intent": "lookup_sarah",
+      "consistent": false,
+      "actual_values": [
+        0,
+        2575
+      ],
+      "expected": [
+        2575
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "intent": "starts_with_10",
+      "consistent": false,
+      "actual_values": [
+        0,
+        4563,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 4,
+      "accuracy": 0.4
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "intent": "distinct_names_count",
+      "consistent": false,
+      "actual_values": [
+        30,
+        2000
+      ],
+      "expected": [
+        30
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "intent": "duplicate_id_count",
+      "consistent": true,
+      "actual_values": [
+        3158
+      ],
+      "expected": [
+        3158
+      ],
+      "total": 10,
+      "passed": 10,
+      "accuracy": 1.0
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "intent": "missing_email_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        3000,
+        5000
+      ],
+      "expected": [
+        3000
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "intent": "total_rows_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "intent": "lookup_sarah",
+      "consistent": false,
+      "actual_values": [
+        0,
+        2587
+      ],
+      "expected": [
+        2587
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "intent": "starts_with_10",
+      "consistent": false,
+      "actual_values": [
+        0,
+        4577,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 4,
+      "accuracy": 0.4
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "intent": "distinct_names_count",
+      "consistent": false,
+      "actual_values": [
+        30,
+        2000,
+        3208
+      ],
+      "expected": [
+        30
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "intent": "duplicate_id_count",
+      "consistent": false,
+      "actual_values": [
+        0
+      ],
+      "expected": [
+        3093
+      ],
+      "total": 10,
+      "passed": 0,
+      "accuracy": 0.0
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "intent": "missing_email_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        3000,
+        5000
+      ],
+      "expected": [
+        3000
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "intent": "total_rows_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "intent": "lookup_sarah",
+      "consistent": false,
+      "actual_values": [
+        0,
+        2585
+      ],
+      "expected": [
+        2585
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "intent": "starts_with_10",
+      "consistent": false,
+      "actual_values": [
+        0,
+        4604,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 4,
+      "accuracy": 0.4
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "intent": "distinct_names_count",
+      "consistent": false,
+      "actual_values": [
+        30,
+        2000
+      ],
+      "expected": [
+        30
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "intent": "duplicate_id_count",
+      "consistent": true,
+      "actual_values": [
+        3104
+      ],
+      "expected": [
+        3104
+      ],
+      "total": 10,
+      "passed": 10,
+      "accuracy": 1.0
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "intent": "missing_email_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        3000,
+        5000
+      ],
+      "expected": [
+        3000
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "intent": "total_rows_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "intent": "lookup_sarah",
+      "consistent": false,
+      "actual_values": [
+        0,
+        2576
+      ],
+      "expected": [
+        2576
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "intent": "starts_with_10",
+      "consistent": false,
+      "actual_values": [
+        0,
+        4584,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 4,
+      "accuracy": 0.4
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "intent": "distinct_names_count",
+      "consistent": false,
+      "actual_values": [
+        30,
+        2000
+      ],
+      "expected": [
+        30
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "intent": "duplicate_id_count",
+      "consistent": false,
+      "actual_values": [
+        0
+      ],
+      "expected": [
+        3147
+      ],
+      "total": 10,
+      "passed": 0,
+      "accuracy": 0.0
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "intent": "missing_email_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        3000,
+        5000
+      ],
+      "expected": [
+        3000
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "intent": "total_rows_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "intent": "lookup_sarah",
+      "consistent": false,
+      "actual_values": [
+        0,
+        2590
+      ],
+      "expected": [
+        2590
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "intent": "starts_with_10",
+      "consistent": false,
+      "actual_values": [
+        0,
+        4592,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 4,
+      "accuracy": 0.4
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "intent": "distinct_names_count",
+      "consistent": false,
+      "actual_values": [
+        30,
+        2000,
+        3167
+      ],
+      "expected": [
+        30
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "intent": "duplicate_id_count",
+      "consistent": true,
+      "actual_values": [
+        3178
+      ],
+      "expected": [
+        3178
+      ],
+      "total": 10,
+      "passed": 10,
+      "accuracy": 1.0
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "intent": "missing_email_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        3000,
+        5000
+      ],
+      "expected": [
+        3000
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "intent": "total_rows_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    },
+    {
+      "dataset": "transactions_style_d00012",
+      "intent": "lookup_sarah",
+      "consistent": false,
+      "actual_values": [
+        0,
+        2586
+      ],
+      "expected": [
+        2586
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "transactions_style_d00012",
+      "intent": "starts_with_10",
+      "consistent": false,
+      "actual_values": [
+        0,
+        4608,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 4,
+      "accuracy": 0.4
+    },
+    {
+      "dataset": "transactions_style_d00012",
+      "intent": "distinct_names_count",
+      "consistent": false,
+      "actual_values": [
+        30,
+        3185
+      ],
+      "expected": [
+        30
+      ],
+      "total": 10,
+      "passed": 9,
+      "accuracy": 0.9
+    },
+    {
+      "dataset": "transactions_style_d00012",
+      "intent": "duplicate_id_count",
+      "consistent": true,
+      "actual_values": [
+        3116
+      ],
+      "expected": [
+        3116
+      ],
+      "total": 10,
+      "passed": 10,
+      "accuracy": 1.0
+    },
+    {
+      "dataset": "transactions_style_d00012",
+      "intent": "missing_email_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        3000,
+        5000
+      ],
+      "expected": [
+        3000
+      ],
+      "total": 10,
+      "passed": 7,
+      "accuracy": 0.7
+    },
+    {
+      "dataset": "transactions_style_d00012",
+      "intent": "total_rows_count",
+      "consistent": false,
+      "actual_values": [
+        0,
+        5000
+      ],
+      "expected": [
+        5000
+      ],
+      "total": 10,
+      "passed": 8,
+      "accuracy": 0.8
+    }
+  ],
+  "sample_failures": [
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "can you pull Sarah data",
+      "expected": 2580,
+      "actual": 0,
+      "latency_ms": 94.377,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "Sarah ke records dikhao",
+      "expected": 2580,
+      "actual": 0,
+      "latency_ms": 47.029,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I can help with this, but I need one clarification to proceed accurately. Detected relevant columns: record_status. Please specify the exact filter(s) and the expected output (rows, count, aggregation, or chart)."
+    },
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "please list Sarah related rows",
+      "expected": 2580,
+      "actual": 0,
+      "latency_ms": 47.913,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "i want records with ids starting 10",
+      "expected": 5000,
+      "actual": 4578,
+      "latency_ms": 140.855,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 4578 matching rows for 's'."
+    },
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "find entries whose order id begins 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 109.789,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'begins'."
+    },
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "show rows where id starts with 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 313.723,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'id starts with 10 and show rows where id starts with 10 and show rows where id starts with with 10'."
+    },
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "give rows with 10 at start of id",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 210.44,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'rows with 10 at starts with of id'."
+    },
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "all data where first digits of id are 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 106.282,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'first digits of id are 10'."
+    },
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "list out all records with starts order id from 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 152.612,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'order id starts with 10 and out all records with starts with order id from 10'."
+    },
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "count unique customer entries",
+      "expected": 30,
+      "actual": 1999,
+      "latency_ms": 55.749,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 1999 distinct values in 'customer.email'."
+    },
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "unique people count please",
+      "expected": 30,
+      "actual": 1999,
+      "latency_ms": 60.321,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 1999 distinct values in 'customer.email'."
+    },
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "how many different buyers",
+      "expected": 30,
+      "actual": 1999,
+      "latency_ms": 67.842,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 1999 distinct values in 'customer.email'."
+    },
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "give me missing email total",
+      "expected": 3000,
+      "actual": 0,
+      "latency_ms": 60.295,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 missing/blank values in 'name'."
+    },
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "emails not filled how many",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 45.108,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "how many records have no email",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 56.914,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "dataset size in rows",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 52.8,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "donations_style",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "what is total records number",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 118.38,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 0."
+    },
+    {
+      "dataset": "retail_style",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "please list Sarah related rows",
+      "expected": 2593,
+      "actual": 0,
+      "latency_ms": 52.136,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "retail_style",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "can you pull Sarah data",
+      "expected": 2593,
+      "actual": 0,
+      "latency_ms": 48.995,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "retail_style",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "Sarah ke records dikhao",
+      "expected": 2593,
+      "actual": 0,
+      "latency_ms": 49.933,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I can help with this, but I need one clarification to proceed accurately. Detected relevant columns: record_status. Please specify the exact filter(s) and the expected output (rows, count, aggregation, or chart)."
+    },
+    {
+      "dataset": "retail_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "list out all records with starts order id from 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 166.854,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'order id starts with 10 and out all records with starts with order id from 10'."
+    },
+    {
+      "dataset": "retail_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "i want records with ids starting 10",
+      "expected": 5000,
+      "actual": 4605,
+      "latency_ms": 125.417,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 4605 matching rows for 's'."
+    },
+    {
+      "dataset": "retail_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "give rows with 10 at start of id",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 160.851,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'rows with 10 at starts with of id'."
+    },
+    {
+      "dataset": "retail_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "find entries whose order id begins 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 111.78,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'begins'."
+    },
+    {
+      "dataset": "retail_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "show rows where id starts with 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 305.518,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'id starts with 10 and show rows where id starts with 10 and show rows where id starts with with 10'."
+    },
+    {
+      "dataset": "retail_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "all data where first digits of id are 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 113.956,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'first digits of id are 10'."
+    },
+    {
+      "dataset": "retail_style",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "how many different buyers",
+      "expected": 30,
+      "actual": 2000,
+      "latency_ms": 66.675,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 2000 distinct values in 'EmailAddress'."
+    },
+    {
+      "dataset": "retail_style",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "unique people count please",
+      "expected": 30,
+      "actual": 3176,
+      "latency_ms": 62.339,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 3176 distinct values in 'OrderID'."
+    },
+    {
+      "dataset": "retail_style",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "emails not filled how many",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 55.857,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "retail_style",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "give me missing email total",
+      "expected": 3000,
+      "actual": 0,
+      "latency_ms": 51.001,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 missing/blank values in 'CustomerName'."
+    },
+    {
+      "dataset": "retail_style",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "how many records have no email",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 47.928,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "retail_style",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "dataset size in rows",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 50.765,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "retail_style",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "what is total records number",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 114.994,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 0."
+    },
+    {
+      "dataset": "transactions_style",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "please list Sarah related rows",
+      "expected": 2580,
+      "actual": 0,
+      "latency_ms": 52.377,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "transactions_style",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "Sarah ke records dikhao",
+      "expected": 2580,
+      "actual": 0,
+      "latency_ms": 94.207,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I can help with this, but I need one clarification to proceed accurately. Detected relevant columns: record_status. Please specify the exact filter(s) and the expected output (rows, count, aggregation, or chart)."
+    },
+    {
+      "dataset": "transactions_style",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "can you pull Sarah data",
+      "expected": 2580,
+      "actual": 0,
+      "latency_ms": 53.744,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "transactions_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "give rows with 10 at start of id",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 162.239,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'rows with 10 at starts with of id'."
+    },
+    {
+      "dataset": "transactions_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "list out all records with starts order id from 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 239.95,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'order id starts with 10 and out all records with starts with order id from 10'."
+    },
+    {
+      "dataset": "transactions_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "find entries whose order id begins 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 104.994,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'begins'."
+    },
+    {
+      "dataset": "transactions_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "all data where first digits of id are 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 101.307,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'first digits of id are 10'."
+    },
+    {
+      "dataset": "transactions_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "i want records with ids starting 10",
+      "expected": 5000,
+      "actual": 4601,
+      "latency_ms": 131.65,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 4601 matching rows for 's'."
+    },
+    {
+      "dataset": "transactions_style",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "show rows where id starts with 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 271.14,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'id starts with 10 and show rows where id starts with 10 and show rows where id starts with with 10'."
+    },
+    {
+      "dataset": "transactions_style",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "unique people count please",
+      "expected": 30,
+      "actual": 3182,
+      "latency_ms": 81.167,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 3182 distinct values in 'transaction_id'."
+    },
+    {
+      "dataset": "transactions_style",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "give me missing email total",
+      "expected": 3000,
+      "actual": 0,
+      "latency_ms": 55.338,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 missing/blank values in 'buyer_name'."
+    },
+    {
+      "dataset": "transactions_style",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "how many records have no email",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 46.705,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "transactions_style",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "emails not filled how many",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 50.527,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "transactions_style",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "dataset size in rows",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 46.634,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "transactions_style",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "what is total records number",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 109.68,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 0."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "can you pull Sarah data",
+      "expected": 2584,
+      "actual": 0,
+      "latency_ms": 48.603,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "please list Sarah related rows",
+      "expected": 2584,
+      "actual": 0,
+      "latency_ms": 53.69,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "Sarah ke records dikhao",
+      "expected": 2584,
+      "actual": 0,
+      "latency_ms": 48.638,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I can help with this, but I need one clarification to proceed accurately. Detected relevant columns: record_status. Please specify the exact filter(s) and the expected output (rows, count, aggregation, or chart)."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "list out all records with starts order id from 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 242.633,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'order id starts with 10 and out all records with starts with order id from 10'."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "show rows where id starts with 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 247.35,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'id starts with 10 and show rows where id starts with 10 and show rows where id starts with with 10'."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "i want records with ids starting 10",
+      "expected": 5000,
+      "actual": 4591,
+      "latency_ms": 136.475,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 4591 matching rows for 's'."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "all data where first digits of id are 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 129.297,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'first digits of id are 10'."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "find entries whose order id begins 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 115.14,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'begins'."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "give rows with 10 at start of id",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 144.931,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'rows with 10 at starts with of id'."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "count unique customer entries",
+      "expected": 30,
+      "actual": 2000,
+      "latency_ms": 58.816,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 2000 distinct values in 'EmailAddress'."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "how many different buyers",
+      "expected": 30,
+      "actual": 2000,
+      "latency_ms": 58.662,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 2000 distinct values in 'EmailAddress'."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "unique people count please",
+      "expected": 30,
+      "actual": 3207,
+      "latency_ms": 58.896,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 3207 distinct values in 'ticket_id'."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "how many records have no email",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 45.276,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "emails not filled how many",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 49.101,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "give me missing email total",
+      "expected": 3000,
+      "actual": 0,
+      "latency_ms": 50.355,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 missing/blank values in 'name'."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "what is total records number",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 125.717,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 0."
+    },
+    {
+      "dataset": "donations_style_d00004",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "dataset size in rows",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 52.381,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "please list Sarah related rows",
+      "expected": 2587,
+      "actual": 0,
+      "latency_ms": 49.158,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "can you pull Sarah data",
+      "expected": 2587,
+      "actual": 0,
+      "latency_ms": 51.692,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "Sarah ke records dikhao",
+      "expected": 2587,
+      "actual": 0,
+      "latency_ms": 46.421,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I can help with this, but I need one clarification to proceed accurately. Detected relevant columns: record_status. Please specify the exact filter(s) and the expected output (rows, count, aggregation, or chart)."
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "find entries whose order id begins 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 113.297,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'begins'."
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "i want records with ids starting 10",
+      "expected": 5000,
+      "actual": 4579,
+      "latency_ms": 118.067,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 4579 matching rows for 's'."
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "give rows with 10 at start of id",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 143.767,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'rows with 10 at starts with of id'."
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "show rows where id starts with 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 281.313,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'id starts with 10 and show rows where id starts with 10 and show rows where id starts with with 10'."
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "list out all records with starts order id from 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 152.942,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'order id starts with 10 and out all records with starts with order id from 10'."
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "all data where first digits of id are 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 108.638,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'first digits of id are 10'."
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "unique people count please",
+      "expected": 30,
+      "actual": 3220,
+      "latency_ms": 80.177,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 3220 distinct values in 'OrderID'."
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "how many different buyers",
+      "expected": 30,
+      "actual": 1999,
+      "latency_ms": 59.823,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 1999 distinct values in 'contact_email'."
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "give me missing email total",
+      "expected": 3000,
+      "actual": 0,
+      "latency_ms": 45.628,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 missing/blank values in 'client_name'."
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "how many records have no email",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 48.69,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "emails not filled how many",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 45.853,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "what is total records number",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 99.224,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 0."
+    },
+    {
+      "dataset": "retail_style_d00005",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "dataset size in rows",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 47.862,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "Sarah ke records dikhao",
+      "expected": 2579,
+      "actual": 0,
+      "latency_ms": 51.985,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I can help with this, but I need one clarification to proceed accurately. Detected relevant columns: record_status. Please specify the exact filter(s) and the expected output (rows, count, aggregation, or chart)."
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "please list Sarah related rows",
+      "expected": 2579,
+      "actual": 0,
+      "latency_ms": 82.334,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "can you pull Sarah data",
+      "expected": 2579,
+      "actual": 0,
+      "latency_ms": 52.571,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "i want records with ids starting 10",
+      "expected": 5000,
+      "actual": 4613,
+      "latency_ms": 134.094,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 4613 matching rows for 's'."
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "find entries whose order id begins 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 129.069,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'begins'."
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "give rows with 10 at start of id",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 151.389,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'rows with 10 at starts with of id'."
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "show rows where id starts with 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 249.788,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'id starts with 10 and show rows where id starts with 10 and show rows where id starts with with 10'."
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "all data where first digits of id are 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 105.492,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'first digits of id are 10'."
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "list out all records with starts order id from 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 275.21,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'order id starts with 10 and out all records with starts with order id from 10'."
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "how many different buyers",
+      "expected": 30,
+      "actual": 2000,
+      "latency_ms": 57.424,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 2000 distinct values in 'user_email'."
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "unique people count please",
+      "expected": 30,
+      "actual": 3185,
+      "latency_ms": 60.177,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 3185 distinct values in 'OrderID'."
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "give me missing email total",
+      "expected": 3000,
+      "actual": 0,
+      "latency_ms": 52.769,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 missing/blank values in 'customer_full_name'."
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "emails not filled how many",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 47.811,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "how many records have no email",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 47.226,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "dataset size in rows",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 68.014,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "transactions_style_d00006",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "what is total records number",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 102.668,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 0."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "please list Sarah related rows",
+      "expected": 2575,
+      "actual": 0,
+      "latency_ms": 59.678,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "Sarah ke records dikhao",
+      "expected": 2575,
+      "actual": 0,
+      "latency_ms": 59.704,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I can help with this, but I need one clarification to proceed accurately. Detected relevant columns: record_status. Please specify the exact filter(s) and the expected output (rows, count, aggregation, or chart)."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "can you pull Sarah data",
+      "expected": 2575,
+      "actual": 0,
+      "latency_ms": 54.57,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "i want records with ids starting 10",
+      "expected": 5000,
+      "actual": 4563,
+      "latency_ms": 113.704,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 4563 matching rows for 's'."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "list out all records with starts order id from 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 228.828,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'order id starts with 10 and out all records with starts with order id from 10'."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "find entries whose order id begins 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 103.681,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'begins'."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "all data where first digits of id are 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 109.284,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'first digits of id are 10'."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "show rows where id starts with 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 273.084,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'id starts with 10 and show rows where id starts with 10 and show rows where id starts with with 10'."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "give rows with 10 at start of id",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 151.685,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'rows with 10 at starts with of id'."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "how many different buyers",
+      "expected": 30,
+      "actual": 2000,
+      "latency_ms": 66.393,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 2000 distinct values in 'customer.email'."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "count unique customer entries",
+      "expected": 30,
+      "actual": 2000,
+      "latency_ms": 51.618,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 2000 distinct values in 'customer.email'."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "unique people count please",
+      "expected": 30,
+      "actual": 2000,
+      "latency_ms": 58.327,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 2000 distinct values in 'customer.email'."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "emails not filled how many",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 52.49,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "how many records have no email",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 47.977,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "give me missing email total",
+      "expected": 3000,
+      "actual": 0,
+      "latency_ms": 49.713,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 missing/blank values in 'document_id'."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "dataset size in rows",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 46.576,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "donations_style_d00007",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "what is total records number",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 103.296,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 0."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "can you pull Sarah data",
+      "expected": 2587,
+      "actual": 0,
+      "latency_ms": 51.357,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "Sarah ke records dikhao",
+      "expected": 2587,
+      "actual": 0,
+      "latency_ms": 52.113,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I can help with this, but I need one clarification to proceed accurately. Detected relevant columns: record_status. Please specify the exact filter(s) and the expected output (rows, count, aggregation, or chart)."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "please list Sarah related rows",
+      "expected": 2587,
+      "actual": 0,
+      "latency_ms": 53.803,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "i want records with ids starting 10",
+      "expected": 5000,
+      "actual": 4577,
+      "latency_ms": 127.657,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 4577 matching rows for 's'."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "find entries whose order id begins 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 110.054,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'begins'."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "list out all records with starts order id from 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 243.051,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'order id starts with 10 and out all records with starts with order id from 10'."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "all data where first digits of id are 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 120.083,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'first digits of id are 10'."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "give rows with 10 at start of id",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 156.328,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'rows with 10 at starts with of id'."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "show rows where id starts with 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 386.162,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'id starts with 10 and show rows where id starts with 10 and show rows where id starts with with 10'."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "unique people count please",
+      "expected": 30,
+      "actual": 3208,
+      "latency_ms": 57.188,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 3208 distinct values in 'invoice_no'."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "how many different buyers",
+      "expected": 30,
+      "actual": 2000,
+      "latency_ms": 63.994,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 2000 distinct values in 'primary_email'."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "number of repeated id records",
+      "expected": 3093,
+      "actual": 0,
+      "latency_ms": 50.287,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "duplicate ids count please",
+      "expected": 3093,
+      "actual": 0,
+      "latency_ms": 50.06,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "count duplicate transaction ids",
+      "expected": 3093,
+      "actual": 0,
+      "latency_ms": 54.577,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "how many rows have duplicate ids",
+      "expected": 3093,
+      "actual": 0,
+      "latency_ms": 48.441,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "how many duplicate id entries",
+      "expected": 3093,
+      "actual": 0,
+      "latency_ms": 49.949,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "tell me repeated order number rows",
+      "expected": 3093,
+      "actual": 0,
+      "latency_ms": 51.188,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No duplicate rows found."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "count rows where id is duplicated",
+      "expected": 3093,
+      "actual": 0,
+      "latency_ms": 48.496,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "how many duplicate order id rows are there",
+      "expected": 3093,
+      "actual": 0,
+      "latency_ms": 48.436,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "do we have duplicate ids count them",
+      "expected": 3093,
+      "actual": 0,
+      "latency_ms": 48.793,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "count repeated id rows",
+      "expected": 3093,
+      "actual": 0,
+      "latency_ms": 52.028,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "give me missing email total",
+      "expected": 3000,
+      "actual": 0,
+      "latency_ms": 51.211,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 missing/blank values in 'client_name'."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "how many records have no email",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 44.487,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "emails not filled how many",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 44.495,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "dataset size in rows",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 52.938,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "retail_style_d00008",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "what is total records number",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 100.592,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 0."
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "Sarah ke records dikhao",
+      "expected": 2585,
+      "actual": 0,
+      "latency_ms": 52.439,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I can help with this, but I need one clarification to proceed accurately. Detected relevant columns: record_status. Please specify the exact filter(s) and the expected output (rows, count, aggregation, or chart)."
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "can you pull Sarah data",
+      "expected": 2585,
+      "actual": 0,
+      "latency_ms": 51.048,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "please list Sarah related rows",
+      "expected": 2585,
+      "actual": 0,
+      "latency_ms": 47.436,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "list out all records with starts order id from 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 230.868,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'order id starts with 10 and out all records with starts with order id from 10'."
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "find entries whose order id begins 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 116.495,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'begins'."
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "all data where first digits of id are 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 102.419,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'first digits of id are 10'."
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "i want records with ids starting 10",
+      "expected": 5000,
+      "actual": 4604,
+      "latency_ms": 111.949,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 4604 matching rows for 's'."
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "show rows where id starts with 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 271.683,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'id starts with 10 and show rows where id starts with 10 and show rows where id starts with with 10'."
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "give rows with 10 at start of id",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 135.536,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'rows with 10 at starts with of id'."
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "unique people count please",
+      "expected": 30,
+      "actual": 2000,
+      "latency_ms": 62.386,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 2000 distinct values in 'customer.email_1'."
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "how many different buyers",
+      "expected": 30,
+      "actual": 2000,
+      "latency_ms": 86.533,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 2000 distinct values in 'customer.email_1'."
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "give me missing email total",
+      "expected": 3000,
+      "actual": 0,
+      "latency_ms": 51.466,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 missing/blank values in 'CustomerName'."
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "how many records have no email",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 48.055,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "emails not filled how many",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 52.043,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "what is total records number",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 132.583,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 0."
+    },
+    {
+      "dataset": "transactions_style_d00009",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "dataset size in rows",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 55.09,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "Sarah ke records dikhao",
+      "expected": 2576,
+      "actual": 0,
+      "latency_ms": 169.895,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I can help with this, but I need one clarification to proceed accurately. Detected relevant columns: record_status. Please specify the exact filter(s) and the expected output (rows, count, aggregation, or chart)."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "can you pull Sarah data",
+      "expected": 2576,
+      "actual": 0,
+      "latency_ms": 51.104,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "please list Sarah related rows",
+      "expected": 2576,
+      "actual": 0,
+      "latency_ms": 50.989,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "i want records with ids starting 10",
+      "expected": 5000,
+      "actual": 4584,
+      "latency_ms": 115.821,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 4584 matching rows for 's'."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "give rows with 10 at start of id",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 144.416,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'rows with 10 at starts with of id'."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "all data where first digits of id are 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 108.859,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'first digits of id are 10'."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "find entries whose order id begins 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 101.343,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'begins'."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "list out all records with starts order id from 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 266.039,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'order id starts with 10 and out all records with starts with order id from 10'."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "show rows where id starts with 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 331.489,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'id starts with 10 and show rows where id starts with 10 and show rows where id starts with with 10'."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "count unique customer entries",
+      "expected": 30,
+      "actual": 2000,
+      "latency_ms": 55.486,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 2000 distinct values in 'customer.email_1'."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "how many different buyers",
+      "expected": 30,
+      "actual": 2000,
+      "latency_ms": 79.155,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 2000 distinct values in 'customer.email_1'."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "unique people count please",
+      "expected": 30,
+      "actual": 2000,
+      "latency_ms": 59.809,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 2000 distinct values in 'customer.email_1'."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "duplicate ids count please",
+      "expected": 3147,
+      "actual": 0,
+      "latency_ms": 51.609,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "tell me repeated order number rows",
+      "expected": 3147,
+      "actual": 0,
+      "latency_ms": 53.572,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No duplicate rows found."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "count duplicate transaction ids",
+      "expected": 3147,
+      "actual": 0,
+      "latency_ms": 50.812,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "how many rows have duplicate ids",
+      "expected": 3147,
+      "actual": 0,
+      "latency_ms": 46.956,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "how many duplicate order id rows are there",
+      "expected": 3147,
+      "actual": 0,
+      "latency_ms": 46.583,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "count rows where id is duplicated",
+      "expected": 3147,
+      "actual": 0,
+      "latency_ms": 46.637,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "count repeated id rows",
+      "expected": 3147,
+      "actual": 0,
+      "latency_ms": 45.391,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "how many duplicate id entries",
+      "expected": 3147,
+      "actual": 0,
+      "latency_ms": 47.349,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "number of repeated id records",
+      "expected": 3147,
+      "actual": 0,
+      "latency_ms": 46.557,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "duplicate_id_count",
+      "question": "do we have duplicate ids count them",
+      "expected": 3147,
+      "actual": 0,
+      "latency_ms": 45.884,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 duplicate rows."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "give me missing email total",
+      "expected": 3000,
+      "actual": 0,
+      "latency_ms": 45.589,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 missing/blank values in 'name_1'."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "how many records have no email",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 47.756,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "emails not filled how many",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 61.499,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "dataset size in rows",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 51.578,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "donations_style_d00010",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "what is total records number",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 110.785,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 0."
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "please list Sarah related rows",
+      "expected": 2590,
+      "actual": 0,
+      "latency_ms": 47.973,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "Sarah ke records dikhao",
+      "expected": 2590,
+      "actual": 0,
+      "latency_ms": 48.63,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I can help with this, but I need one clarification to proceed accurately. Detected relevant columns: record_status. Please specify the exact filter(s) and the expected output (rows, count, aggregation, or chart)."
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "can you pull Sarah data",
+      "expected": 2590,
+      "actual": 0,
+      "latency_ms": 49.164,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "list out all records with starts order id from 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 154.568,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'order id starts with 10 and out all records with starts with order id from 10'."
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "i want records with ids starting 10",
+      "expected": 5000,
+      "actual": 4592,
+      "latency_ms": 142.51,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 4592 matching rows for 's'."
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "give rows with 10 at start of id",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 158.276,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'rows with 10 at starts with of id'."
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "find entries whose order id begins 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 179.429,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'begins'."
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "show rows where id starts with 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 246.112,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'id starts with 10 and show rows where id starts with 10 and show rows where id starts with with 10'."
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "round": 1,
+      "intent": "starts_with_10",
+      "question": "all data where first digits of id are 10",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 112.408,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "No matching data found for 'first digits of id are 10'."
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "unique people count please",
+      "expected": 30,
+      "actual": 3167,
+      "latency_ms": 63.244,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 3167 distinct values in 'OrderID'."
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "round": 1,
+      "intent": "distinct_names_count",
+      "question": "how many different buyers",
+      "expected": 30,
+      "actual": 2000,
+      "latency_ms": 63.39,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 2000 distinct values in 'user_email_1'."
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "how many records have no email",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 48.58,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "emails not filled how many",
+      "expected": 3000,
+      "actual": 5000,
+      "latency_ms": 46.64,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 5000."
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "round": 1,
+      "intent": "missing_email_count",
+      "question": "give me missing email total",
+      "expected": 3000,
+      "actual": 0,
+      "latency_ms": 49.191,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Found 0 missing/blank values in 'customer_full_name'."
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "what is total records number",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 104.287,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "Returned total row count: 0."
+    },
+    {
+      "dataset": "retail_style_d00011",
+      "round": 1,
+      "intent": "total_rows_count",
+      "question": "dataset size in rows",
+      "expected": 5000,
+      "actual": 0,
+      "latency_ms": 52.222,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    },
+    {
+      "dataset": "transactions_style_d00012",
+      "round": 1,
+      "intent": "lookup_sarah",
+      "question": "can you pull Sarah data",
+      "expected": 2586,
+      "actual": 0,
+      "latency_ms": 59.355,
+      "decision_path": null,
+      "plan_intent": null,
+      "summary": "I cannot answer this from the current dataset information. Please ask a question that is directly based on the uploaded data."
+    }
+  ],
+  "top_failing_questions": [
+    {
+      "intent": "distinct_names_count",
+      "question": "unique people count please",
+      "total": 12,
+      "passed": 0,
+      "failures": 12,
+      "accuracy": 0.0
+    },
+    {
+      "intent": "lookup_sarah",
+      "question": "Sarah ke records dikhao",
+      "total": 12,
+      "passed": 0,
+      "failures": 12,
+      "accuracy": 0.0
+    },
+    {
+      "intent": "lookup_sarah",
+      "question": "can you pull Sarah data",
+      "total": 12,
+      "passed": 0,
+      "failures": 12,
+      "accuracy": 0.0
+    },
+    {
+      "intent": "lookup_sarah",
+      "question": "please list Sarah related rows",
+      "total": 12,
+      "passed": 0,
+      "failures": 12,
+      "accuracy": 0.0
+    },
+    {
+      "intent": "missing_email_count",
+      "question": "emails not filled how many",
+      "total": 12,
+      "passed": 0,
+      "failures": 12,
+      "accuracy": 0.0
+    },
+    {
+      "intent": "missing_email_count",
+      "question": "give me missing email total",
+      "total": 12,
+      "passed": 0,
+      "failures": 12,
+      "accuracy": 0.0
+    },
+    {
+      "intent": "missing_email_count",
+      "question": "how many records have no email",
+      "total": 12,
+      "passed": 0,
+      "failures": 12,
+      "accuracy": 0.0
+    },
+    {
+      "intent": "starts_with_10",
+      "question": "all data where first digits of id are 10",
+      "total": 12,
+      "passed": 0,
+      "failures": 12,
+      "accuracy": 0.0
+    },
+    {
+      "intent": "starts_with_10",
+      "question": "find entries whose order id begins 10",
+      "total": 12,
+      "passed": 0,
+      "failures": 12,
+      "accuracy": 0.0
+    },
+    {
+      "intent": "starts_with_10",
+      "question": "give rows with 10 at start of id",
+      "total": 12,
+      "passed": 0,
+      "failures": 12,
+      "accuracy": 0.0
+    },
+    {
+      "intent": "starts_with_10",
+      "question": "i want records with ids starting 10",
+      "total": 12,
+      "passed": 0,
+      "failures": 12,
+      "accuracy": 0.0
+    },
+    {
+      "intent": "starts_with_10",
+      "question": "list out all records with starts order id from 10",
+      "total": 12,
+      "passed": 0,
+      "failures": 12,
+      "accuracy": 0.0
+    },
+    {
+      "intent": "starts_with_10",
+      "question": "show rows where id starts with 10",
+      "total": 12,
+      "passed": 0,
+      "failures": 12,
+      "accuracy": 0.0
+    },
+    {
+      "intent": "total_rows_count",
+      "question": "dataset size in rows",
+      "total": 12,
+      "passed": 0,
+      "failures": 12,
+      "accuracy": 0.0
+    },
+    {
+      "intent": "total_rows_count",
+      "question": "what is total records number",
+      "total": 12,
+      "passed": 0,
+      "failures": 12,
+      "accuracy": 0.0
+    },
+    {
+      "intent": "distinct_names_count",
+      "question": "how many different buyers",
+      "total": 12,
+      "passed": 2,
+      "failures": 10,
+      "accuracy": 0.1667
+    },
+    {
+      "intent": "distinct_names_count",
+      "question": "count unique customer entries",
+      "total": 12,
+      "passed": 8,
+      "failures": 4,
+      "accuracy": 0.6667
+    },
+    {
+      "intent": "duplicate_id_count",
+      "question": "count duplicate transaction ids",
+      "total": 12,
+      "passed": 10,
+      "failures": 2,
+      "accuracy": 0.8333
+    },
+    {
+      "intent": "duplicate_id_count",
+      "question": "count repeated id rows",
+      "total": 12,
+      "passed": 10,
+      "failures": 2,
+      "accuracy": 0.8333
+    },
+    {
+      "intent": "duplicate_id_count",
+      "question": "count rows where id is duplicated",
+      "total": 12,
+      "passed": 10,
+      "failures": 2,
+      "accuracy": 0.8333
+    },
+    {
+      "intent": "duplicate_id_count",
+      "question": "do we have duplicate ids count them",
+      "total": 12,
+      "passed": 10,
+      "failures": 2,
+      "accuracy": 0.8333
+    },
+    {
+      "intent": "duplicate_id_count",
+      "question": "duplicate ids count please",
+      "total": 12,
+      "passed": 10,
+      "failures": 2,
+      "accuracy": 0.8333
+    },
+    {
+      "intent": "duplicate_id_count",
+      "question": "how many duplicate id entries",
+      "total": 12,
+      "passed": 10,
+      "failures": 2,
+      "accuracy": 0.8333
+    },
+    {
+      "intent": "duplicate_id_count",
+      "question": "how many duplicate order id rows are there",
+      "total": 12,
+      "passed": 10,
+      "failures": 2,
+      "accuracy": 0.8333
+    },
+    {
+      "intent": "duplicate_id_count",
+      "question": "how many rows have duplicate ids",
+      "total": 12,
+      "passed": 10,
+      "failures": 2,
+      "accuracy": 0.8333
+    },
+    {
+      "intent": "duplicate_id_count",
+      "question": "number of repeated id records",
+      "total": 12,
+      "passed": 10,
+      "failures": 2,
+      "accuracy": 0.8333
+    },
+    {
+      "intent": "duplicate_id_count",
+      "question": "tell me repeated order number rows",
+      "total": 12,
+      "passed": 10,
+      "failures": 2,
+      "accuracy": 0.8333
+    }
+  ],
+  "recommendations": [
+    "Focus rule tuning on these intents first: distinct_names_count, duplicate_id_count, lookup_sarah, missing_email_count, starts_with_10, total_rows_count.",
+    "Detected 62 consistency failures where same-purpose paraphrases returned different answers.",
+    "Use these failing paraphrases as priority regression tests: distinct_names_count -> unique people count please; lookup_sarah -> Sarah ke records dikhao; lookup_sarah -> can you pull Sarah data; lookup_sarah -> please list Sarah related rows; missing_email_count -> emails not filled how many.",
+    "Training is not performed by this script; export the failure corpus and use it for supervised prompt/model fine-tuning in your training pipeline."
+  ],
+  "iteration_history": [
+    {
+      "iteration": 1,
+      "seed": 42,
+      "accuracy": 0.7028,
+      "consistency_accuracy": 0.1389,
+      "intent_weights": {
+        "lookup_sarah": 1,
+        "starts_with_10": 1,
+        "distinct_names_count": 1,
+        "duplicate_id_count": 1,
+        "missing_email_count": 1,
+        "total_rows_count": 1
+      }
+    }
+  ],
+  "strict_gate_passed": false
+}

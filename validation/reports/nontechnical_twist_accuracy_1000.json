@@ -1,0 +1,42 @@
+{
+  "config": {
+    "seed": 42,
+    "question_families": [
+      "starts_with_10",
+      "lookup_sarah",
+      "total_rows_count"
+    ],
+    "questions_per_family": {
+      "starts_with_10": 5,
+      "lookup_sarah": 5,
+      "total_rows_count": 5
+    }
+  },
+  "overall": {
+    "datasets": 1000,
+    "rows_per_dataset": 1500,
+    "total_questions": 15000,
+    "passed": 12000,
+    "failed": 3000,
+    "accuracy": 0.8,
+    "runtime_sec": 458.183,
+    "throughput_qps": 32.738
+  },
+  "intent_metrics": {
+    "starts_with_10": {
+      "total": 5000,
+      "passed": 3000,
+      "accuracy": 0.6
+    },
+    "lookup_sarah": {
+      "total": 5000,
+      "passed": 4000,
+      "accuracy": 0.8
+    },
+    "total_rows_count": {
+      "total": 5000,
+      "passed": 5000,
+      "accuracy": 1.0
+    }
+  }
+}
