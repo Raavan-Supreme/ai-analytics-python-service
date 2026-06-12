@@ -1,0 +1,23 @@
+# Maven/Java build outputs
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Local runtime data exports
+storage/
+*.csv
+*.xlsx
+*.xls
+
+# Logs
+*.log
+
+# IDE
+.idea/
+
+# Local environment files
+.env
+.env.*
+!.env.example
