@@ -1356,11 +1356,24 @@ def _planner_route_candidates(question: str, plan: QueryPlan) -> list[str]:
         requested.append("chart")
     if asks_count(q):
         requested.append("count")
+    if (
+        detected_family == "lookup"
+        or asks_specific_lookup(q)
+        or asks_id_lookup(q)
+        or bool(extract_text_match_rules(q))
+        or any(
+            isinstance(f, dict)
+            and str(f.get("op") or f.get("operator") or "").lower() in {"startswith", "endswith", "contains", "=", "=="}
+            for f in plan.filters
+        )
+    ):
+        requested.append("lookup")
 
     priority = [
         "schema",
         "data_quality",
         "distinct",
+        "lookup",
         "comparison",
         "aggregation",
         "relationship",
@@ -1453,6 +1466,19 @@ def _execute_planner_route(
 
     if route == "count" and asks_count(question):
         return build_count_result(df, question)
+
+    if route == "lookup":
+        route_trace: dict[str, Any] = {"queryPlan": plan_dict}
+        result_df, summary = default_fallback_result(df, question, trace=route_trace)
+        if result_df.empty:
+            has_text_filters = any(
+                isinstance(item, dict)
+                and str(item.get("op") or item.get("operator") or "").lower() in {"startswith", "endswith", "contains", "=", "=="}
+                for item in plan_dict.get("filters", [])
+            )
+            if not has_text_filters:
+                return None
+        return result_df, summary
 
     return None
 
@@ -1587,6 +1613,9 @@ def wants_full_data(question: str) -> bool:
 
 def asks_existence(question: str) -> bool:
     q = question.lower()
+    # Structured filter queries should return matching rows, not a boolean exists table.
+    if extract_text_match_rules(question) or extract_filter_specs(question):
+        return False
     markers = ["is there", "are there", "any", "exists", "exist", "contains", "like", "present"]
     return any(m in q for m in markers)
 
@@ -3609,6 +3638,60 @@ def add_identifying_columns(full_df: pd.DataFrame, projected_df: pd.DataFrame) -
     return enriched
 
 
+def _normalize_blank_markers(series: pd.Series) -> pd.Series:
+    text = series.astype(str).str.strip()
+    lowered = text.str.lower()
+    markers = {"", "-", "--", "nan", "none", "null", "nat"}
+    return series.mask(series.isna() | lowered.isin(markers), pd.NA)
+
+
+def compact_lookup_result_columns(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    out = df.copy()
+    cols = [str(c) for c in out.columns]
+    meta_cols = {"__sheet_name", "__source_file"}
+
+    # Coalesce families like OrderID, OrderID2, OrderID3 into one base column.
+    families: dict[str, list[str]] = {}
+    for col in cols:
+        m = re.match(r"^(.*?)(\d+)$", col)
+        if not m:
+            continue
+        base = m.group(1)
+        if base and base in out.columns:
+            families.setdefault(base, []).append(col)
+
+    for base, variants in families.items():
+        merged = _normalize_blank_markers(out[base])
+        for col in sorted(variants):
+            merged = merged.combine_first(_normalize_blank_markers(out[col]))
+        out[base] = merged
+        out = out.drop(columns=variants, errors="ignore")
+
+    # For identifier columns, convert date-like artifacts (e.g., 2001-01-01)
+    # into stable ID tokens (e.g., 2001) to keep answer formatting readable.
+    for col in [str(c) for c in out.columns]:
+        col_norm = normalize_token(col)
+        if not any(token in col_norm for token in ["id", "order", "code", "ref", "number"]):
+            continue
+        series = _normalize_blank_markers(out[col]).astype(str).str.strip()
+        date_like = series.str.match(r"^\d{4}-\d{2}-\d{2}(?:[ tT].*)?$", na=False)
+        if bool(date_like.any()):
+            out[col] = series.where(~date_like, series.str.slice(0, 4))
+
+    # Drop columns that are entirely blank after normalization (except meta).
+    keep_cols: list[str] = []
+    for col in [str(c) for c in out.columns]:
+        norm = _normalize_blank_markers(out[col])
+        if col in meta_cols or bool(norm.notna().any()):
+            keep_cols.append(col)
+    out = out[keep_cols]
+
+    return out
+
+
 def find_matching_rows(df: pd.DataFrame, term: str) -> pd.DataFrame:
     needle = term.strip().lower()
     if not needle:
@@ -3672,10 +3755,22 @@ def extract_text_match_rules(question: str) -> list[tuple[Optional[str], str, st
         "data",
     }
 
+    def is_plausible_field(field: str) -> bool:
+        tokens = [tok for tok in re.split(r"\s+", field.lower().strip()) if tok]
+        if not tokens:
+            return False
+        if len(tokens) > 4 and not any(tok in {"id", "code", "number", "ref", "name"} for tok in tokens):
+            return False
+        noisy_leads = {"all", "the", "orders", "rows", "records", "entries", "data", "that"}
+        if len(tokens) >= 3 and all(tok in noisy_leads for tok in tokens[:3]):
+            return False
+        return True
+
     starts_patterns = [
         r"\b(?:with|where|for)\s+starts?\s+([a-z][a-z0-9_\- ]{1,60}?)\s+from\s+([a-z0-9][a-z0-9 ._\-/]{0,100})",
         r"\b(?:whose|where|with|for)\s+([a-z][a-z0-9_\- ]{1,60}?)\s+(?:starts?\s+with|starts?\s+from|starting\s+with|starting\s+from|beginning\s+with|beginning\s+from|begins?\s+with|begins?\s+from|begins?|prefix(?:ed)?\s+with|prefix)\s+([a-z0-9][a-z0-9 ._\-/]{0,100})",
         r"\b([a-z][a-z0-9_\-]*(?:\s+[a-z0-9_\-]+){0,3})\s+(?:starts?\s+with|starts?\s+from|starting\s+with|starting\s+from|beginning\s+with|beginning\s+from|begins?\s+with|begins?\s+from|begins?|prefix(?:ed)?\s+with|prefix)\s+([a-z0-9][a-z0-9 ._\-/]{0,100})",
+        r"\bstarts?\s+with\s+([a-z][a-z0-9_\- ]{1,60}?)\s+([a-z0-9][a-z0-9 ._\-/]{0,100})",
         r"\b([a-z][a-z0-9_\-]*(?:\s+[a-z0-9_\-]+){0,3})\s+starts?\s+([a-z0-9][a-z0-9 ._\-/]{0,100})",
         r"\bstarts?\s+([a-z][a-z0-9_\- ]{1,60}?)\s+from\s+([a-z0-9][a-z0-9 ._\-/]{0,100})",
         r"\bfirst\s+(?:digit|digits|character|characters)\s+of\s+([a-z][a-z0-9_\- ]{1,60}?)\s+(?:is|are)\s+([a-z0-9][a-z0-9 ._\-/]{0,100})",
@@ -3690,7 +3785,7 @@ def extract_text_match_rules(question: str) -> list[tuple[Optional[str], str, st
             field = clean_field(m.group(1))
             value = clean_value(m.group(2))
             field_tokens = [tok for tok in re.split(r"\s+", field) if tok]
-            if field and value and not all(tok in invalid_field_tokens for tok in field_tokens):
+            if field and value and is_plausible_field(field) and not all(tok in invalid_field_tokens for tok in field_tokens):
                 rules.append((field, value, "startswith"))
 
     # Reverse phrasing: "10 at start of id".
@@ -3772,7 +3867,18 @@ def extract_text_match_rules(question: str) -> list[tuple[Optional[str], str, st
 
             if chosen_value:
                 op = "startswith" if has_start_intent else "endswith" if has_end_intent else "contains"
-                rules.append((None, chosen_value, op))
+                inferred_hint: Optional[str] = None
+                if "orderid" in q or "order id" in q:
+                    inferred_hint = "orderid"
+                elif "customerid" in q or "customer id" in q:
+                    inferred_hint = "customerid"
+                elif "productid" in q or "product id" in q:
+                    inferred_hint = "productid"
+                else:
+                    m = re.search(r"\b([a-z][a-z0-9_]{1,24})\s*id\b", q)
+                    if m:
+                        inferred_hint = f"{m.group(1)}id"
+                rules.append((inferred_hint, chosen_value, op))
 
     unique: list[tuple[Optional[str], str, str]] = []
     seen: set[tuple[str, str, str]] = set()
@@ -3787,6 +3893,7 @@ def extract_text_match_rules(question: str) -> list[tuple[Optional[str], str, st
 def infer_implicit_pattern_columns(
     df: pd.DataFrame,
     question: str,
+    operator: str = "contains",
     understanding: Optional[dict[str, Any]] = None,
 ) -> list[str]:
     q = question.lower().strip()
@@ -3815,7 +3922,86 @@ def infer_implicit_pattern_columns(
         norm = normalize_token(col_name)
         if any(tok in norm for tok in ["id", "code", "number", "ref", "name", "product", "customer", "order"]):
             preferred.append(col_name)
+    # For prefix/suffix operators, avoid broad all-column scans which can cause
+    # false positives (e.g., matching year tokens in date columns).
+    if operator in {"startswith", "endswith"}:
+        return preferred
     return preferred or [str(c) for c in df.columns]
+
+
+def _column_name_is_datetime_like(column_name: str) -> bool:
+    norm = normalize_token(column_name)
+    return any(token in norm for token in ["date", "time", "month", "year", "timestamp"])
+
+
+def _series_is_datetime_like(series: pd.Series, sample_size: int = 240, threshold: float = 0.75) -> bool:
+    if series is None or series.empty:
+        return False
+    sample = series.dropna().astype(str).str.strip()
+    if sample.empty:
+        return False
+    sample = sample[sample.ne("")].head(sample_size)
+    if sample.empty:
+        return False
+    # Pure short numeric tokens are more likely identifiers (e.g., OrderID=2001)
+    # than datetimes; avoid classifying them as date-like.
+    normalized = sample.str.lower()
+    numeric_only = normalized.str.fullmatch(r"\d{1,6}")
+    if bool(numeric_only.mean() >= 0.8):
+        return False
+    has_datetime_tokens = normalized.str.contains(r"[-/:t]|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec", regex=True)
+    if bool(has_datetime_tokens.mean() < 0.2):
+        return False
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        parsed = pd.to_datetime(sample, errors="coerce", utc=False)
+    ratio = float(parsed.notna().mean()) if len(sample) else 0.0
+    return ratio >= threshold
+
+
+def _series_is_identifier_like(series: pd.Series, sample_size: int = 240, threshold: float = 0.45) -> bool:
+    if series is None or series.empty:
+        return False
+    sample = series.dropna().astype(str).str.strip()
+    if sample.empty:
+        return False
+    sample = sample[sample.ne("")].head(sample_size)
+    if sample.empty:
+        return False
+    norm = sample.map(normalize_token)
+    if norm.empty:
+        return False
+    id_like = norm.map(lambda item: bool(item) and bool(re.search(r"\d", item)) and len(item) <= 36)
+    ratio = float(id_like.mean()) if len(id_like) else 0.0
+    return ratio >= threshold
+
+
+def _is_id_prefix_query(hint: Optional[str], operator: str, value_norm: str, question: str = "") -> bool:
+    if operator != "startswith":
+        return False
+    if not bool(re.fullmatch(r"0*\d{1,8}", value_norm)):
+        return False
+    hint_norm = normalize_token(hint) if hint else ""
+    question_norm = normalize_question_text(question)
+    id_tokens = ["id", "order", "code", "number", "ref", "invoice", "transaction"]
+    return any(token in hint_norm for token in id_tokens) or any(token in question_norm for token in id_tokens)
+
+
+def _is_identifier_semantic_column(column_name: str) -> bool:
+    col_norm = normalize_token(column_name)
+    return any(token in col_norm for token in ["id", "order", "code", "number", "ref", "invoice", "transaction"])
+
+
+def _normalize_for_id_prefix_match(series: pd.Series, column_name: str) -> pd.Series:
+    normalized = series.astype(str).map(normalize_token)
+    if not _is_identifier_semantic_column(column_name):
+        return normalized
+    raw = series.astype(str).str.strip().str.lower()
+    date_like = raw.str.match(r"^\d{4}-\d{2}-\d{2}(?:[ tT].*)?$", na=False)
+    if bool(date_like.any()):
+        years = raw.str.slice(0, 4).map(normalize_token)
+        normalized = normalized.where(~date_like, years)
+    return normalized
 
 
 def filter_rows_by_text_rules(
@@ -3833,25 +4019,89 @@ def filter_rows_by_text_rules(
         if not value_norm:
             continue
 
+        id_prefix_query = _is_id_prefix_query(hint, operator, value_norm, question)
         target_col = choose_best_column(matched, hint)
         if target_col:
             candidate_cols = [target_col]
+            if id_prefix_query:
+                hint_norm = normalize_token(hint) if hint else ""
+                for col in matched.columns:
+                    col_name = str(col)
+                    if col_name == target_col:
+                        continue
+                    col_norm = normalize_token(col_name)
+                    if hint_norm:
+                        if hint_norm in col_norm or col_norm in hint_norm:
+                            candidate_cols.append(col_name)
+                            continue
+                        if hint_norm.endswith("id"):
+                            base_hint = hint_norm[:-2]
+                            if base_hint and base_hint in col_norm and "id" in col_norm:
+                                candidate_cols.append(col_name)
+                                continue
+                    else:
+                        if any(token in col_norm for token in ["id", "code", "number", "ref", "order"]):
+                            candidate_cols.append(col_name)
+                            continue
+                        if _series_is_identifier_like(matched[col_name]):
+                            candidate_cols.append(col_name)
+                # Preserve order while de-duplicating.
+                seen_cols: set[str] = set()
+                candidate_cols = [c for c in candidate_cols if not (c in seen_cols or seen_cols.add(c))]
         else:
-            inferred_cols = infer_implicit_pattern_columns(matched, question, understanding=understanding)
-            candidate_cols = inferred_cols if inferred_cols else [str(c) for c in matched.columns]
+            inferred_cols = infer_implicit_pattern_columns(matched, question, operator=operator, understanding=understanding)
+            if inferred_cols:
+                candidate_cols = inferred_cols
+            elif operator in {"startswith", "endswith"}:
+                candidate_cols = []
+            else:
+                candidate_cols = [str(c) for c in matched.columns]
         if not candidate_cols:
             return matched.head(0)
 
         combined_mask = pd.Series(False, index=matched.index)
         for col in candidate_cols:
-            normalized_col = matched[col].astype(str).map(normalize_token)
+            if id_prefix_query:
+                col_name = str(col)
+                id_semantic = _is_identifier_semantic_column(col_name)
+                if (_column_name_is_datetime_like(col_name) or _series_is_datetime_like(matched[col])) and not id_semantic:
+                    continue
+                normalized_col = _normalize_for_id_prefix_match(matched[col], col_name)
+            else:
+                normalized_col = matched[col].astype(str).map(normalize_token)
             if operator == "startswith":
                 col_mask = normalized_col.str.startswith(value_norm, na=False)
+                if not bool(col_mask.any()):
+                    # Handle identifier-like user inputs such as "01" for IDs like 1001.
+                    col_norm = normalize_token(col)
+                    id_like_column = any(token in col_norm for token in ["id", "code", "number", "ref", "order"])
+                    id_like_value = bool(re.fullmatch(r"0*\d+", value_norm))
+                    if id_like_column and id_like_value:
+                        value_trimmed = value_norm.lstrip("0")
+                        if value_trimmed:
+                            col_mask = normalized_col.str.startswith(value_trimmed, na=False)
             elif operator == "endswith":
                 col_mask = normalized_col.str.endswith(value_norm, na=False)
             else:
                 col_mask = normalized_col.str.contains(value_norm, na=False)
             combined_mask = combined_mask | col_mask
+
+        # Last-mile recovery: when user asked an ID prefix lookup and hinted
+        # columns produced zero matches, scan all non-datetime columns once.
+        if id_prefix_query and not bool(combined_mask.any()):
+            for col in [str(c) for c in matched.columns]:
+                id_semantic = _is_identifier_semantic_column(col)
+                if not id_semantic and not _series_is_identifier_like(matched[col]):
+                    continue
+                if (_column_name_is_datetime_like(col) or _series_is_datetime_like(matched[col])) and not id_semantic:
+                    continue
+                normalized_col = _normalize_for_id_prefix_match(matched[col], col)
+                col_mask = normalized_col.str.startswith(value_norm, na=False)
+                if not bool(col_mask.any()):
+                    value_trimmed = value_norm.lstrip("0")
+                    if value_trimmed:
+                        col_mask = normalized_col.str.startswith(value_trimmed, na=False)
+                combined_mask = combined_mask | col_mask
 
         matched = matched[combined_mask]
         if matched.empty:
@@ -3873,7 +4123,7 @@ def filter_rows_by_plan_filters(
             continue
 
         col_hint = str(item.get("column") or "").strip()
-        operator = _normalize_filter_operator(item.get("operator"))
+        operator = _normalize_filter_operator(item.get("operator") or item.get("op"))
         value = item.get("value")
 
         target_col = choose_best_column(matched, col_hint) if col_hint else None
@@ -3894,7 +4144,18 @@ def filter_rows_by_plan_filters(
                 continue
 
             if operator == "startswith":
+                if _is_id_prefix_query(col_hint, operator, value_norm):
+                    if _column_name_is_datetime_like(target_col) or _series_is_datetime_like(series):
+                        continue
                 mask = normalized_col.str.startswith(value_norm, na=False)
+                if not bool(mask.any()):
+                    target_norm = normalize_token(target_col)
+                    id_like_column = any(token in target_norm for token in ["id", "code", "number", "ref", "order"])
+                    id_like_value = bool(re.fullmatch(r"0*\d+", value_norm))
+                    if id_like_column and id_like_value:
+                        value_trimmed = value_norm.lstrip("0")
+                        if value_trimmed:
+                            mask = normalized_col.str.startswith(value_trimmed, na=False)
             elif operator == "endswith":
                 mask = normalized_col.str.endswith(value_norm, na=False)
             elif operator in {"=", "=="}:
@@ -4219,6 +4480,10 @@ def default_fallback_result(
 
     if conditions or has_date_filter or text_rules or has_plan_filters:
         matched = filter_rows_by_plan_filters(base_df, plan_filters) if has_plan_filters else base_df
+        if has_plan_filters and matched.empty and text_rules:
+            # Some LLM-derived plan filters can be over-constrained. When
+            # structured text rules exist, retry from base dataframe.
+            matched = base_df
         if conditions and not matched.empty:
             matched = filter_rows_by_conditions(matched, conditions)
         if text_rules and not matched.empty:
@@ -4263,6 +4528,7 @@ def default_fallback_result(
             if matched.empty:
                 if trace is not None:
                     trace["decisionPath"] = "lookup_no_match"
+                    trace["queryUsed"] = term_display
                 return (
                     pd.DataFrame({"exists": [False], "query": [term_display], "matches": [0]}),
                     f"No matching data found for '{term_display}'.",
@@ -4274,6 +4540,8 @@ def default_fallback_result(
                 any(token in q_lower for token in ["list", "show", "display", "return", "rows", "records", "all ", "orders", "items", "products"])
                 and " only " not in f" {q_lower} "
             )
+            if text_rules and any(op in {"startswith", "endswith"} for _, _, op in text_rules):
+                wants_full_row_context = True
             should_single = should_return_single_row(question, conditions)
             final_df = matched.head(1) if should_single else matched
             if projection and not wants_full_row_context:
@@ -4281,8 +4549,10 @@ def default_fallback_result(
                 if not should_single:
                     final_df = add_identifying_columns(matched, final_df)
                     final_df = apply_query_plan_post_processing(final_df, question, query_plan)
+                    final_df = compact_lookup_result_columns(final_df)
                 if trace is not None:
                     trace["decisionPath"] = "lookup_projection"
+                    trace["queryUsed"] = term_display
                 return (
                     final_df.reset_index(drop=True),
                     f"Found {len(matched)} matching rows for '{term_display}'. Returned requested fields only.",
@@ -4290,9 +4560,11 @@ def default_fallback_result(
 
             if not should_single:
                 final_df = apply_query_plan_post_processing(final_df, question, query_plan)
+                final_df = compact_lookup_result_columns(final_df)
 
             if trace is not None:
                 trace["decisionPath"] = "lookup"
+                trace["queryUsed"] = term_display
             return final_df.reset_index(drop=True), f"Found {len(matched)} matching rows for '{term_display}'."
 
         if has_date_filter:

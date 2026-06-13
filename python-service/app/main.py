@@ -46,16 +46,21 @@ CHART_DIR.mkdir(parents=True, exist_ok=True)
 TOKEN_STORE: dict[str, int] = {}
 UNRESOLVED_QUESTION_COUNTS: dict[str, int] = {}
 QUERY_TRACE_ENABLED = os.getenv("APP_QUERY_TRACE", "true").strip().lower() in {"1", "true", "yes", "on"}
-QUERY_TRACE_INCLUDE_IN_RESPONSE = os.getenv("APP_QUERY_TRACE_INCLUDE_RESPONSE", "false").strip().lower() in {
+QUERY_TRACE_INCLUDE_IN_RESPONSE = (
+    os.getenv("APP_QUERY_TRACE_INCLUDE_RESPONSE", "true").strip().lower() in {
     "1",
     "true",
     "yes",
     "on",
 }
+    or True
+)
 LLM_TRACE_ENABLED = os.getenv("APP_LLM_TRACE", "true").strip().lower() in {"1", "true", "yes", "on"}
 LLM_TRACE_PROMPT_MAX = int(os.getenv("APP_LLM_TRACE_PROMPT_MAX", "4000"))
 LLM_TRACE_RESPONSE_MAX = int(os.getenv("APP_LLM_TRACE_RESPONSE_MAX", "2000"))
 logger = logging.getLogger("python_service.query_trace")
+if not logging.getLogger().handlers:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s [%(name)s] %(message)s")
 
 
 app = FastAPI(title="Python NL Query Service", version="1.0.0")
@@ -342,6 +347,146 @@ def _normalize_fragmented_text(value: Any) -> Any:
     return cleaned
 
 
+def _is_blankish(value: Any) -> bool:
+    if value is None:
+        return True
+    try:
+        if pd.isna(value):
+            return True
+    except Exception:
+        pass
+    if isinstance(value, str):
+        text = value.strip().lower()
+        return text in {"", "-", "--", "na", "n/a", "nat", "none", "null"}
+    return False
+
+
+def _is_unnamed_column(name: str) -> bool:
+    normalized = str(name or "").strip().lower()
+    return normalized.startswith("unnamed:") or normalized.startswith("column_")
+
+
+def _value_fits_column(value: Any, column_name: str) -> bool:
+    if _is_blankish(value):
+        return False
+
+    text = str(value).strip()
+    col_norm = core_intents.normalize_token(column_name)
+    numeric_hint_tokens = {
+        "id",
+        "order",
+        "qty",
+        "quantity",
+        "price",
+        "unitprice",
+        "revenue",
+        "amount",
+        "sales",
+        "total",
+        "count",
+        "number",
+        "rate",
+    }
+    date_hint_tokens = {"date", "time", "created", "updated", "month", "year", "day"}
+
+    if any(token in col_norm for token in date_hint_tokens):
+        parsed = pd.to_datetime([text], errors="coerce")
+        return bool(parsed.notna().all())
+
+    if any(token in col_norm for token in numeric_hint_tokens):
+        cleaned = re.sub(r"\b(?:usd|eur|gbp|inr|rs|dollars?|euros?|pounds?)\b", "", text, flags=re.IGNORECASE)
+        cleaned = re.sub(r"[$€£¥₹,]", "", cleaned)
+        cleaned = re.sub(r"^\((.*)\)$", r"-\1", cleaned)
+        parsed = pd.to_numeric([cleaned], errors="coerce")
+        return bool(pd.notna(parsed[0]))
+
+    # Text-like columns accept any non-blank text.
+    return True
+
+
+def _choose_shift_start(canonical_columns: list[str], overflow_values: list[Any]) -> tuple[int, int]:
+    if not canonical_columns or not overflow_values:
+        return -1, 0
+
+    best_start = -1
+    best_score = -1.0
+    best_length = 0
+    for start in range(len(canonical_columns)):
+        length = min(len(overflow_values), len(canonical_columns) - start)
+        if length < 3:
+            continue
+        matched = 0
+        for offset in range(length):
+            if _value_fits_column(overflow_values[offset], canonical_columns[start + offset]):
+                matched += 1
+        score = matched / max(1, length)
+        if score > best_score:
+            best_score = score
+            best_start = start
+            best_length = length
+
+    if best_score < 0.65:
+        return -1, 0
+    return best_start, best_length
+
+
+def _recover_shifted_records_from_unnamed_columns(df: pd.DataFrame) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    canonical_columns = [str(col) for col in df.columns if not _is_unnamed_column(str(col))]
+    unnamed_columns = [str(col) for col in df.columns if _is_unnamed_column(str(col))]
+    if not canonical_columns or not unnamed_columns:
+        return df
+
+    recovered_rows: list[dict[str, Any]] = []
+    for _, row in df.iterrows():
+        overflow_values = [row[col] for col in unnamed_columns if not _is_blankish(row[col])]
+        if len(overflow_values) < 3:
+            continue
+
+        start, length = _choose_shift_start(canonical_columns, overflow_values)
+        if start < 0 or length < 3:
+            continue
+
+        recovered = {col: pd.NA for col in df.columns}
+        for offset in range(length):
+            recovered[canonical_columns[start + offset]] = overflow_values[offset]
+        recovered_rows.append(recovered)
+
+    if not recovered_rows:
+        return df
+
+    recovered_df = pd.DataFrame(recovered_rows)
+    recovered_df = recovered_df.dropna(axis=1, how="all")
+    return pd.concat([df, recovered_df], ignore_index=True, sort=False)
+
+
+def _drop_noise_unnamed_columns(df: pd.DataFrame, *, drop_threshold: float = 0.92) -> pd.DataFrame:
+    if df.empty:
+        return df
+
+    out = df.copy()
+    to_drop: list[str] = []
+    for col in out.columns:
+        col_name = str(col)
+        if not _is_unnamed_column(col_name):
+            continue
+        series = to_1d_series(out, col_name)
+        if series.empty:
+            to_drop.append(col_name)
+            continue
+        blank_mask = series.map(_is_blankish)
+        blank_ratio = float(blank_mask.mean())
+        non_blank_count = int((~blank_mask).sum())
+        if blank_ratio >= drop_threshold or non_blank_count <= 1:
+            to_drop.append(col_name)
+
+    if to_drop:
+        out = out.drop(columns=to_drop, errors="ignore")
+    return out
+
+
 def _date_parse_score(sample: pd.Series, *, dayfirst: bool) -> float:
     if sample.empty:
         return 0.0
@@ -400,6 +545,8 @@ def normalize_uploaded_dataframe(df: pd.DataFrame) -> pd.DataFrame:
         if pd.api.types.is_object_dtype(series) or pd.api.types.is_string_dtype(series):
             out[str(col)] = series.map(_normalize_fragmented_text)
 
+    out = _recover_shifted_records_from_unnamed_columns(out)
+    out = _drop_noise_unnamed_columns(out)
     out = _coerce_date_like_columns(out)
     return out
 
@@ -580,7 +727,7 @@ def load_dataframe_from_path_with_question(
         if key_candidates:
             candidate_sheets = key_candidates
 
-    if force_all_sheets or (_is_all_sheets_request(question) and preferred_key is None and len(candidate_sheets) > 1):
+    if force_all_sheets or (preferred_key is None and len(candidate_sheets) > 1 and not requested_sheet):
         combined = _combine_sheets_with_origin(file_path, candidate_sheets)
         return combined, {
             "sourceType": "excel",
@@ -669,6 +816,37 @@ def summarize_data_context(data_context: dict[str, Any]) -> str:
         return f"Workbook context: using sheet(s) {shown}."
 
     return ""
+
+
+def extract_searched_sheets(data_context: dict[str, Any]) -> list[str]:
+    sources = data_context.get("selectedSources")
+    if not isinstance(sources, list):
+        return []
+
+    out: list[str] = []
+    seen: set[str] = set()
+    for source in sources:
+        if not isinstance(source, dict):
+            continue
+        if str(source.get("sourceType") or "") != "excel":
+            continue
+
+        for key in ("selectedSheets", "availableSheets"):
+            raw = source.get(key)
+            if not isinstance(raw, list):
+                continue
+            for sheet in raw:
+                name = str(sheet or "").strip()
+                if name and name not in seen:
+                    seen.add(name)
+                    out.append(name)
+
+        selected = str(source.get("selectedSheet") or "").strip()
+        if selected and selected not in seen:
+            seen.add(selected)
+            out.append(selected)
+
+    return out
 
 
 def get_dataset_row(user_id: int, dataset_id: int) -> sqlite3.Row:
@@ -1711,6 +1889,50 @@ def resolve_execution_question(
     return chosen_question, chosen_scope, understanding, plan
 
 
+def _strip_sheet_constraints_from_question(question: str) -> str:
+    q = str(question or "").strip()
+    if not q:
+        return q
+
+    # Remove leading sheet selectors but keep downstream question terms.
+    q = re.sub(r"^\s*in\s+__sheet_name\s*=\s*[^,;]+?\s+and\s+", "", q, flags=re.IGNORECASE)
+    q = re.sub(r"^\s*in\s+sheet\s*=\s*[^,;]+?\s+and\s+", "", q, flags=re.IGNORECASE)
+    q = re.sub(r"^\s*on\s+sheet\s+[^,;]+?\s+and\s+", "", q, flags=re.IGNORECASE)
+    q = re.sub(r"^\s*from\s+sheet\s+[^,;]+?\s+and\s+", "", q, flags=re.IGNORECASE)
+
+    # Remove standalone sheet-clause fragments when they appear as one conjunct.
+    q = re.sub(r"\b__sheet_name\s*=\s*[^,;]+", "", q, flags=re.IGNORECASE)
+    q = re.sub(r"\bsheet\s*=\s*[^,;]+", "", q, flags=re.IGNORECASE)
+    q = re.sub(r"\bon\s+sheet\s+[^,;]+", "", q, flags=re.IGNORECASE)
+    q = re.sub(r"\bfrom\s+sheet\s+[^,;]+", "", q, flags=re.IGNORECASE)
+
+    # Clean leftover conjunctions/spacing.
+    q = re.sub(r"\b(?:and|or)\b\s*$", "", q, flags=re.IGNORECASE)
+    q = re.sub(r"^\s*\b(?:and|or)\b\s*", "", q, flags=re.IGNORECASE)
+    q = re.sub(r"\b(?:in|on|from)\b\s*$", "", q, flags=re.IGNORECASE)
+    q = re.sub(r"\s+", " ", q).strip(" ,;.")
+    return q
+
+
+def _strip_sheet_filters_from_plan(plan: dict[str, Any]) -> dict[str, Any]:
+    out = dict(plan or {})
+    raw_filters = out.get("filters")
+    if isinstance(raw_filters, list):
+        cleaned_filters: list[dict[str, Any]] = []
+        for item in raw_filters:
+            if not isinstance(item, dict):
+                continue
+            col_norm = core_intents.normalize_token(item.get("column") or "")
+            if col_norm in {"sheetname", "sheet_name", "sheet", "__sheet_name", "worksheet", "tab"}:
+                continue
+            cleaned_filters.append(item)
+        out["filters"] = cleaned_filters
+
+    out["sheet_mode"] = "all_sheets"
+    out["workbook_scope"] = "all_sheets"
+    return out
+
+
 def should_render_chart_with_original_intent(
     original_question: str,
     execution_question: str,
@@ -1797,16 +2019,25 @@ def run_java_nl_query(req: JavaNLQueryRequest) -> dict[str, Any]:
     if not question:
         raise HTTPException(status_code=400, detail="question must not be empty")
 
-    df, data_context = build_dataframe_from_java_request(req, question)
+    # Always search across workbook sheets/subsheets for query answering.
+    df, data_context = build_dataframe_from_java_request(req, question, force_all_sheets=True)
     question, scope, understanding_meta, plan = resolve_execution_question(df, question, endpoint="/nl-query")
+    question = _strip_sheet_constraints_from_question(question)
+    understanding_meta["chosenQuestion"] = question
+    plan = _strip_sheet_filters_from_plan(plan)
 
     if (
         str(plan.get("sheet_mode") or "") == "all_sheets"
         and data_context.get("mode") == "single_source"
         and data_context.get("selectedSources")
+        and str((data_context.get("selectedSources") or [{}])[0].get("mode") or "")
+        not in {"all_sheets", "all_sheets_low_confidence"}
     ):
         df, data_context = build_dataframe_from_java_request(req, question, force_all_sheets=True)
         question, scope, understanding_meta, plan = resolve_execution_question(df, question, endpoint="/nl-query")
+        question = _strip_sheet_constraints_from_question(question)
+        understanding_meta["chosenQuestion"] = question
+        plan = _strip_sheet_filters_from_plan(plan)
 
     trace = core_intents.build_reasoning_trace_v2(df, question, llm_understanding=understanding_meta)
     trace["originalQuestion"] = original_question
@@ -1814,6 +2045,7 @@ def run_java_nl_query(req: JavaNLQueryRequest) -> dict[str, Any]:
     trace["questionUnderstanding"] = understanding_meta
     trace["queryPlan"] = plan
     trace["dataContext"] = data_context
+    trace["searchedSheets"] = extract_searched_sheets(data_context)
     context_note = summarize_data_context(data_context)
 
     if scope != "in_scope":
@@ -1847,6 +2079,7 @@ def run_java_nl_query(req: JavaNLQueryRequest) -> dict[str, Any]:
             "generated_code": "clarification_needed",
             "attempts": 0,
             "dataContext": data_context,
+            "queryUsed": question,
         }
         if QUERY_TRACE_INCLUDE_IN_RESPONSE:
             response["debugTrace"] = trace
@@ -1879,6 +2112,7 @@ def run_java_nl_query(req: JavaNLQueryRequest) -> dict[str, Any]:
             "generated_code": "rule_based",
             "attempts": 0,
             "dataContext": data_context,
+            "queryUsed": question,
         }
         if QUERY_TRACE_INCLUDE_IN_RESPONSE:
             response["debugTrace"] = trace
@@ -1908,6 +2142,7 @@ def run_java_nl_query(req: JavaNLQueryRequest) -> dict[str, Any]:
             "generated_code": "rule_based",
             "attempts": 0,
             "dataContext": data_context,
+            "queryUsed": question,
         }
         if QUERY_TRACE_INCLUDE_IN_RESPONSE:
             response["debugTrace"] = trace
@@ -1951,6 +2186,7 @@ def run_java_nl_query(req: JavaNLQueryRequest) -> dict[str, Any]:
             "generated_code": "rule_based_fallback",
             "attempts": 0,
             "dataContext": data_context,
+            "queryUsed": question,
         }
         if QUERY_TRACE_INCLUDE_IN_RESPONSE:
             response["debugTrace"] = trace
@@ -2058,6 +2294,7 @@ def run_java_nl_query(req: JavaNLQueryRequest) -> dict[str, Any]:
         "generated_code": generated,
         "attempts": attempts,
         "dataContext": data_context,
+        "queryUsed": question,
     }
     if QUERY_TRACE_INCLUDE_IN_RESPONSE:
         response["debugTrace"] = trace
