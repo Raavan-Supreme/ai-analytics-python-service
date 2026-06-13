@@ -20,6 +20,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -32,6 +34,8 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/query")
 @CrossOrigin(origins = "*")
 public class QueryController {
+
+    private static final Logger log = LoggerFactory.getLogger(QueryController.class);
 
     private final UserRepository userRepository;
     private final UploadedFileRepository fileRepository;
@@ -118,6 +122,12 @@ public class QueryController {
         try {
             User user = getUser(req.email());
             List<UploadedFile> selectedFiles = resolveRequestedFiles(user, req);
+            log.info("QUERY_REQUEST email={} fileIds={} relationshipIds={} chartType={} question={}",
+                    req.email(),
+                    selectedFiles.stream().map(UploadedFile::getId).toList(),
+                    req.relationshipIds(),
+                    req.chartType(),
+                    req.question());
 
             AnalysisSession session = AnalysisSession.builder()
                     .owner(user)
@@ -133,9 +143,8 @@ public class QueryController {
             payload.put("filePaths", selectedFiles.stream().map(UploadedFile::getStoredPath).toList());
             payload.put("question", req.question());
             payload.put("chartType", req.chartType() == null ? "auto" : req.chartType());
-            if (req.sheetName() != null && !req.sheetName().isBlank()) {
-                payload.put("sheetName", req.sheetName());
-            }
+            // Keep workbook querying sheet-agnostic: preview may use selected sheet,
+            // but query execution should search across workbook sheets/subsheets.
 
             if (req.relationshipIds() != null && !req.relationshipIds().isEmpty()) {
                 List<Map<String, Object>> relationships = req.relationshipIds().stream()
@@ -155,6 +164,22 @@ public class QueryController {
 
             String url = pythonServiceBaseUrl + "/nl-query";
             Map<String, Object> resp = restTemplate.postForObject(url, payload, Map.class);
+            if (resp != null) {
+                Object summary = resp.get("summary");
+                Object traceObj = resp.get("debugTrace");
+                String decisionPath = null;
+                String intentFamily = null;
+                if (traceObj instanceof Map<?, ?> trace) {
+                    Object dp = trace.get("decisionPath");
+                    decisionPath = dp == null ? null : String.valueOf(dp);
+                    Object queryPlanObj = trace.get("queryPlan");
+                    if (queryPlanObj instanceof Map<?, ?> queryPlan) {
+                        Object intent = queryPlan.get("intent_family");
+                        intentFamily = intent == null ? null : String.valueOf(intent);
+                    }
+                }
+                log.info("QUERY_RESPONSE summary={} decisionPath={} intentFamily={}", summary, decisionPath, intentFamily);
+            }
 
             String chartDownloadUrl = null;
             if (resp != null && resp.get("chart") instanceof Map<?, ?> chartMap) {
@@ -198,11 +223,13 @@ public class QueryController {
             resp.put("queryId", history.getId());
             return ResponseEntity.ok(resp);
         } catch (HttpStatusCodeException e) {
+            log.error("QUERY_PYTHON_ERROR status={} body={}", e.getStatusCode(), e.getResponseBodyAsString());
             return ResponseEntity.status(502).body(Map.of(
                     "error", "Python service query failed",
                     "details", e.getResponseBodyAsString()
             ));
         } catch (Exception e) {
+            log.error("QUERY_PROCESSING_ERROR", e);
             return ResponseEntity.status(500).body(Map.of(
                     "error", "Query processing failed",
                     "details", e.getMessage()
